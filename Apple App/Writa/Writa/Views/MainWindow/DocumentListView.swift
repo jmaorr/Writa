@@ -10,6 +10,7 @@ import SwiftData
 
 struct DocumentListView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.themeManager) private var themeManager
     let sidebarSelection: SidebarItemType?
     @Binding var documentSelection: Document?
     
@@ -97,13 +98,7 @@ struct DocumentListView: View {
             if documents.isEmpty {
                 EmptyDocumentListView(sidebarSelection: sidebarSelection)
             } else {
-                List(documents, selection: $documentSelection) { document in
-                    DocumentRowView(document: document)
-                        .tag(document)
-                        .contextMenu {
-                            documentContextMenu(for: document)
-                        }
-                }
+                documentList
             }
         }
         .searchable(text: $searchText, prompt: "Search documents")
@@ -111,12 +106,33 @@ struct DocumentListView: View {
         .toolbar {
             ToolbarItemGroup {
                 sortMenu
-                
+            }
+            ToolbarItemGroup {
                 Button(action: createNewDocument) {
-                    Label("New Document", systemImage: "square.and.pencil")
+                    Image(systemName: "square.and.pencil")
                 }
             }
         }
+    }
+    
+    // MARK: - Document List
+    
+    private var documentList: some View {
+        List(documents, selection: $documentSelection) { document in
+            DocumentRowView(document: document)
+                .tag(document)
+                .listRowBackground(rowBackground(for: document))
+                .contextMenu {
+                    documentContextMenu(for: document)
+                }
+        }
+    }
+    
+    private func rowBackground(for document: Document) -> Color {
+        if documentSelection?.id == document.id {
+            return themeManager.tokens.colors.surfaceSelected.opacity(0.3)
+        }
+        return Color.clear
     }
     
     // MARK: - Navigation Title
@@ -139,14 +155,23 @@ struct DocumentListView: View {
     
     private var sortMenu: some View {
         Menu {
-            Picker("Sort By", selection: $sortOrder) {
-                ForEach(DocumentSortOrder.allCases) { order in
-                    Text(order.rawValue).tag(order)
+            ForEach(DocumentSortOrder.allCases) { order in
+                Button {
+                    sortOrder = order
+                } label: {
+                    HStack {
+                        Text(order.rawValue)
+                        if sortOrder == order {
+                            Spacer()
+                            Image(systemName: "checkmark")
+                        }
+                    }
                 }
             }
         } label: {
-            Label("Sort", systemImage: "arrow.up.arrow.down")
+            Image(systemName: "arrow.up.arrow.down")
         }
+        .menuIndicator(.hidden)
     }
     
     // MARK: - Context Menu

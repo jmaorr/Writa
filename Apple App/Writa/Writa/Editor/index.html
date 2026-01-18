@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style id="theme-styles"></style>
+    <style>
+        body {
+            margin: 0;
+            padding: 32px;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: transparent;
+        }
+        
+        .tiptap {
+            outline: none;
+            max-width: 720px;
+            margin: 0 auto;
+            font-size: 16px;
+            line-height: 1.6;
+            min-height: 500px;
+        }
+        
+        .tiptap p.is-editor-empty:first-child::before {
+            content: 'Start writing...';
+            color: #999;
+            pointer-events: none;
+            float: left;
+            height: 0;
+        }
+        
+        /* Typography */
+        .tiptap h1 { font-size: 2em; font-weight: 700; margin: 0.5em 0; }
+        .tiptap h2 { font-size: 1.5em; font-weight: 600; margin: 0.5em 0; }
+        .tiptap h3 { font-size: 1.25em; font-weight: 600; margin: 0.5em 0; }
+        .tiptap p { margin: 0.75em 0; }
+        
+        /* Text formatting */
+        .tiptap strong { font-weight: 600; }
+        .tiptap em { font-style: italic; }
+        .tiptap u { text-decoration: underline; }
+        .tiptap s { text-decoration: line-through; }
+        .tiptap mark { background-color: #fef08a; padding: 0.1em 0.2em; border-radius: 2px; }
+        .tiptap code { 
+            background: rgba(0,0,0,0.05); 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            font-family: ui-monospace, monospace;
+            font-size: 0.9em;
+        }
+        
+        /* Lists */
+        .tiptap ul, .tiptap ol { padding-left: 24px; margin: 1em 0; }
+        .tiptap li { margin-bottom: 0.25em; }
+        
+        /* Task lists */
+        .tiptap ul[data-type="taskList"] { list-style: none; padding: 0; }
+        .tiptap ul[data-type="taskList"] li { display: flex; gap: 8px; align-items: flex-start; }
+        .tiptap ul[data-type="taskList"] input { margin-top: 4px; cursor: pointer; }
+        .tiptap ul[data-type="taskList"] li[data-checked="true"] > div { 
+            text-decoration: line-through; 
+            opacity: 0.6; 
+        }
+        
+        /* Blockquotes */
+        .tiptap blockquote {
+            border-left: 3px solid #007AFF;
+            padding-left: 16px;
+            margin: 1em 0;
+            color: #666;
+            font-style: italic;
+        }
+        
+        /* Code blocks */
+        .tiptap pre {
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 1em 0;
+            overflow-x: auto;
+            font-family: ui-monospace, monospace;
+        }
+        .tiptap pre code { background: none; padding: 0; }
+        
+        /* Links */
+        .tiptap a {
+            color: #007AFF;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .tiptap a:hover { text-decoration: underline; }
+        
+        /* Images */
+        .tiptap img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 1em 0;
+            display: block;
+        }
+        .tiptap img.ProseMirror-selectednode {
+            outline: 2px solid #007AFF;
+            outline-offset: 2px;
+        }
+        
+        /* Horizontal rule */
+        .tiptap hr {
+            border: none;
+            border-top: 2px solid #e5e5e5;
+            margin: 2em 0;
+        }
+        
+        /* Tables */
+        .tiptap table {
+            border-collapse: collapse;
+            table-layout: fixed;
+            width: 100%;
+            margin: 1em 0;
+            overflow: hidden;
+        }
+        .tiptap td, .tiptap th {
+            min-width: 1em;
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            vertical-align: top;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .tiptap th {
+            font-weight: 600;
+            text-align: left;
+            background-color: rgba(0,0,0,0.03);
+        }
+        .tiptap .selectedCell:after {
+            z-index: 2;
+            position: absolute;
+            content: "";
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            background: rgba(0, 122, 255, 0.1);
+            pointer-events: none;
+        }
+        
+        /* Text alignment */
+        .tiptap .text-left { text-align: left; }
+        .tiptap .text-center { text-align: center; }
+        .tiptap .text-right { text-align: right; }
+        .tiptap .text-justify { text-align: justify; }
+        
+        /* Subscript & Superscript */
+        .tiptap sub { vertical-align: sub; font-size: 0.8em; }
+        .tiptap sup { vertical-align: super; font-size: 0.8em; }
+        
+        /* Selection */
+        .tiptap ::selection { background: rgba(0, 122, 255, 0.2); }
+        
+        /* Placeholder */
+        .tiptap .is-empty::before {
+            content: attr(data-placeholder);
+            float: left;
+            color: #999;
+            pointer-events: none;
+            height: 0;
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .tiptap { color: #f0f0f0; }
+            .tiptap code { background: rgba(255,255,255,0.1); }
+            .tiptap pre { background: rgba(255,255,255,0.1); }
+            .tiptap blockquote { color: #aaa; border-left-color: #0a84ff; }
+            .tiptap mark { background-color: #854d0e; color: #fef08a; }
+            .tiptap td, .tiptap th { border-color: #444; }
+            .tiptap th { background-color: rgba(255,255,255,0.05); }
+            .tiptap hr { border-top-color: #444; }
+        }
+    </style>
+</head>
+<body>
+    <div id="editor"></div>
+    
+    <!-- Use CDN for now - will switch to local after testing -->
+    <script type="module">
+        import { Editor } from 'https://esm.sh/@tiptap/core@2.1.13'
+        import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2.1.13'
+        import Placeholder from 'https://esm.sh/@tiptap/extension-placeholder@2.1.13'
+        import Underline from 'https://esm.sh/@tiptap/extension-underline@2.1.13'
+        import Link from 'https://esm.sh/@tiptap/extension-link@2.1.13'
+        import TaskList from 'https://esm.sh/@tiptap/extension-task-list@2.1.13'
+        import TaskItem from 'https://esm.sh/@tiptap/extension-task-item@2.1.13'
+        import Image from 'https://esm.sh/@tiptap/extension-image@2.1.13'
+        import Table from 'https://esm.sh/@tiptap/extension-table@2.1.13'
+        import TableRow from 'https://esm.sh/@tiptap/extension-table-row@2.1.13'
+        import TableCell from 'https://esm.sh/@tiptap/extension-table-cell@2.1.13'
+        import TableHeader from 'https://esm.sh/@tiptap/extension-table-header@2.1.13'
+        import Highlight from 'https://esm.sh/@tiptap/extension-highlight@2.1.13'
+        import TextAlign from 'https://esm.sh/@tiptap/extension-text-align@2.1.13'
+        import Subscript from 'https://esm.sh/@tiptap/extension-subscript@2.1.13'
+        import Superscript from 'https://esm.sh/@tiptap/extension-superscript@2.1.13'
+        import Color from 'https://esm.sh/@tiptap/extension-color@2.1.13'
+        import TextStyle from 'https://esm.sh/@tiptap/extension-text-style@2.1.13'
+        
+        function sendToSwift(msg) {
+            if (window.webkit?.messageHandlers?.tiptap) {
+                window.webkit.messageHandlers.tiptap.postMessage(msg);
+            }
+        }
+        
+        function getState() {
+            if (!window.editor) return {};
+            var e = window.editor;
+            return {
+                isBold: e.isActive('bold'),
+                isItalic: e.isActive('italic'),
+                isUnderline: e.isActive('underline'),
+                isStrike: e.isActive('strike'),
+                isCode: e.isActive('code'),
+                isCodeBlock: e.isActive('codeBlock'),
+                isBlockquote: e.isActive('blockquote'),
+                isBulletList: e.isActive('bulletList'),
+                isOrderedList: e.isActive('orderedList'),
+                isTaskList: e.isActive('taskList'),
+                isHighlight: e.isActive('highlight'),
+                isSubscript: e.isActive('subscript'),
+                isSuperscript: e.isActive('superscript'),
+                headingLevel: e.isActive('heading', { level: 1 }) ? 1 : 
+                              e.isActive('heading', { level: 2 }) ? 2 : 
+                              e.isActive('heading', { level: 3 }) ? 3 : 0,
+                isLink: e.isActive('link'),
+                textAlign: e.isActive({ textAlign: 'left' }) ? 'left' :
+                          e.isActive({ textAlign: 'center' }) ? 'center' :
+                          e.isActive({ textAlign: 'right' }) ? 'right' :
+                          e.isActive({ textAlign: 'justify' }) ? 'justify' : 'left',
+                canUndo: e.can().undo(),
+                canRedo: e.can().redo()
+            };
+        }
+        
+        try {
+            const editor = new Editor({
+                element: document.getElementById('editor'),
+                extensions: [
+                    StarterKit.configure({
+                        heading: { levels: [1, 2, 3] }
+                    }),
+                    Placeholder.configure({ 
+                        placeholder: 'Start writing...'
+                    }),
+                    Underline,
+                    Link.configure({
+                        openOnClick: false,
+                        HTMLAttributes: {
+                            class: 'link'
+                        }
+                    }),
+                    TaskList,
+                    TaskItem.configure({ 
+                        nested: true 
+                    }),
+                    Image.configure({
+                        HTMLAttributes: {
+                            class: 'image'
+                        }
+                    }),
+                    Table.configure({
+                        resizable: true
+                    }),
+                    TableRow,
+                    TableHeader,
+                    TableCell,
+                    Highlight.configure({
+                        multicolor: false
+                    }),
+                    TextAlign.configure({
+                        types: ['heading', 'paragraph']
+                    }),
+                    Subscript,
+                    Superscript,
+                    TextStyle,
+                    Color
+                ],
+                content: '<p></p>',
+                onUpdate: () => {
+                    sendToSwift({
+                        type: 'contentChange',
+                        html: editor.getHTML(),
+                        json: JSON.stringify(editor.getJSON()),
+                        text: editor.getText()
+                    });
+                },
+                onSelectionUpdate: () => {
+                    sendToSwift({ type: 'selectionChange', state: getState() });
+                }
+            });
+            
+            window.editor = editor;
+            
+            // Editor bridge for Swift commands
+            window.editorBridge = {
+                // Content
+                setContent: (html) => editor.commands.setContent(html || '<p></p>'),
+                setContentJSON: (json) => { if (json) editor.commands.setContent(json); },
+                getContent: () => editor.getHTML(),
+                getContentJSON: () => JSON.stringify(editor.getJSON()),
+                getText: () => editor.getText(),
+                
+                // Text formatting
+                toggleBold: () => editor.chain().focus().toggleBold().run(),
+                toggleItalic: () => editor.chain().focus().toggleItalic().run(),
+                toggleUnderline: () => editor.chain().focus().toggleUnderline().run(),
+                toggleStrike: () => editor.chain().focus().toggleStrike().run(),
+                toggleCode: () => editor.chain().focus().toggleCode().run(),
+                toggleHighlight: () => editor.chain().focus().toggleHighlight().run(),
+                toggleSubscript: () => editor.chain().focus().toggleSubscript().run(),
+                toggleSuperscript: () => editor.chain().focus().toggleSuperscript().run(),
+                
+                // Headings
+                setHeading: (level) => {
+                    if (level === 0) editor.chain().focus().setParagraph().run();
+                    else editor.chain().focus().toggleHeading({ level }).run();
+                },
+                toggleHeading1: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
+                toggleHeading2: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+                toggleHeading3: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
+                
+                // Lists
+                toggleBulletList: () => editor.chain().focus().toggleBulletList().run(),
+                toggleOrderedList: () => editor.chain().focus().toggleOrderedList().run(),
+                toggleTaskList: () => editor.chain().focus().toggleTaskList().run(),
+                
+                // Blocks
+                toggleBlockquote: () => editor.chain().focus().toggleBlockquote().run(),
+                toggleCodeBlock: () => editor.chain().focus().toggleCodeBlock().run(),
+                setHorizontalRule: () => editor.chain().focus().setHorizontalRule().run(),
+                
+                // Links
+                setLink: (url) => {
+                    if (url) editor.chain().focus().setLink({ href: url }).run();
+                    else editor.chain().focus().unsetLink().run();
+                },
+                unsetLink: () => editor.chain().focus().unsetLink().run(),
+                
+                // Images
+                insertImage: (src, alt) => {
+                    if (src) editor.chain().focus().setImage({ src, alt: alt || '' }).run();
+                },
+                
+                // Tables
+                insertTable: () => editor.chain().focus()
+                    .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+                    .run(),
+                deleteTable: () => editor.chain().focus().deleteTable().run(),
+                addColumnBefore: () => editor.chain().focus().addColumnBefore().run(),
+                addColumnAfter: () => editor.chain().focus().addColumnAfter().run(),
+                deleteColumn: () => editor.chain().focus().deleteColumn().run(),
+                addRowBefore: () => editor.chain().focus().addRowBefore().run(),
+                addRowAfter: () => editor.chain().focus().addRowAfter().run(),
+                deleteRow: () => editor.chain().focus().deleteRow().run(),
+                toggleHeaderCell: () => editor.chain().focus().toggleHeaderCell().run(),
+                mergeCells: () => editor.chain().focus().mergeCells().run(),
+                splitCell: () => editor.chain().focus().splitCell().run(),
+                
+                // Text alignment
+                setTextAlign: (align) => editor.chain().focus().setTextAlign(align).run(),
+                
+                // Text color
+                setColor: (color) => editor.chain().focus().setColor(color).run(),
+                unsetColor: () => editor.chain().focus().unsetColor().run(),
+                
+                // History
+                undo: () => editor.chain().focus().undo().run(),
+                redo: () => editor.chain().focus().redo().run(),
+                
+                // Focus
+                focus: () => editor.commands.focus(),
+                blur: () => editor.commands.blur(),
+                
+                // State
+                getState: () => JSON.stringify(getState()),
+                
+                // Theme
+                setThemeCSS: (css) => {
+                    const el = document.getElementById('theme-styles');
+                    if (el) el.textContent = css;
+                }
+            };
+            
+            editor.commands.focus();
+            sendToSwift({ type: 'ready' });
+            
+        } catch (err) {
+            sendToSwift({ type: 'debug', message: 'ERROR: ' + err.message });
+            sendToSwift({ type: 'debug', message: 'Stack: ' + err.stack });
+        }
+    </script>
+</body>
+</html>

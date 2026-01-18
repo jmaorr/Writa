@@ -25,6 +25,11 @@ struct SettingsView: View {
                     Label("Editor", systemImage: "pencil")
                 }
             
+            ToolbarSettingsView()
+                .tabItem {
+                    Label("Toolbar", systemImage: "slider.horizontal.3")
+                }
+            
             AccountSettingsView()
                 .tabItem {
                     Label("Account", systemImage: "person.circle")
@@ -35,7 +40,7 @@ struct SettingsView: View {
                     Label("Sync", systemImage: "arrow.triangle.2.circlepath")
                 }
         }
-        .frame(width: 500, height: 400)
+        .frame(width: 550, height: 500)
     }
 }
 
@@ -310,9 +315,177 @@ struct SyncSettingsView: View {
     }
 }
 
+// MARK: - Toolbar Settings
+
+struct ToolbarSettingsView: View {
+    @Environment(\.toolbarConfiguration) private var config
+    
+    var body: some View {
+        Form {
+            // My Tools Section
+            Section {
+                myToolsList
+            } header: {
+                Text("My Tools")
+            } footer: {
+                Text("Drag to reorder. Add separators to create visual groups in your toolbar.")
+            }
+            
+            // Add Separator Button
+            Section {
+                Button {
+                    withAnimation {
+                        config.addSeparator()
+                    }
+                } label: {
+                    Label("Add Separator", systemImage: "minus")
+                }
+            }
+            
+            // Hidden Tools Section
+            Section {
+                hiddenToolsList
+            } header: {
+                Text("Hidden Tools")
+            } footer: {
+                Text("These tools are available via the + button in the toolbar.")
+            }
+            
+            // Reset
+            Section {
+                Button("Reset to Defaults") {
+                    withAnimation {
+                        config.resetToDefaults()
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+    
+    // MARK: - My Tools List
+    
+    private var myToolsList: some View {
+        List {
+            ForEach(Array(config.visibleItems.enumerated()), id: \.offset) { index, item in
+                itemRow(item, at: index)
+            }
+            .onMove { source, destination in
+                config.moveItem(from: source, to: destination)
+            }
+            .onDelete { indices in
+                for index in indices.sorted().reversed() {
+                    config.removeItem(at: index)
+                }
+            }
+        }
+        .frame(minHeight: 200)
+        .listStyle(.plain)
+    }
+    
+    @ViewBuilder
+    private func itemRow(_ item: ToolbarEntry, at index: Int) -> some View {
+        switch item {
+        case .tool(let tool):
+            HStack(spacing: 12) {
+                // Icon
+                Group {
+                    if let label = tool.customLabel {
+                        Text(label)
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                    } else {
+                        Image(systemName: tool.icon)
+                            .font(.system(size: 14))
+                    }
+                }
+                .frame(width: 24)
+                .foregroundStyle(.primary)
+                
+                // Name
+                Text(tool.displayName)
+                
+                Spacer()
+                
+                // Shortcut
+                if let shortcut = tool.shortcut {
+                    Text(shortcut)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 4)
+            
+        case .separator:
+            HStack(spacing: 12) {
+                Image(systemName: "minus")
+                    .font(.system(size: 14))
+                    .frame(width: 24)
+                    .foregroundStyle(.secondary)
+                
+                Text("Separator")
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                // Visual indicator
+                HStack(spacing: 4) {
+                    Circle().fill(.quaternary).frame(width: 4, height: 4)
+                    Rectangle().fill(.quaternary).frame(width: 20, height: 2)
+                    Circle().fill(.quaternary).frame(width: 4, height: 4)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+    
+    // MARK: - Hidden Tools List
+    
+    private var hiddenToolsList: some View {
+        Group {
+            if config.hiddenTools.isEmpty {
+                Text("All tools are visible in the toolbar")
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
+            } else {
+                ForEach(config.hiddenTools) { tool in
+                    Button {
+                        withAnimation {
+                            config.addTool(tool)
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Group {
+                                if let label = tool.customLabel {
+                                    Text(label)
+                                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                                } else {
+                                    Image(systemName: tool.icon)
+                                        .font(.system(size: 14))
+                                }
+                            }
+                            .frame(width: 24)
+                            
+                            Text(tool.displayName)
+                            
+                            Spacer()
+                            
+                            Image(systemName: "plus.circle")
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
     SettingsView()
         .environment(\.themeManager, ThemeManager())
+        .environment(\.toolbarConfiguration, ToolbarConfiguration())
 }

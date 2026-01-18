@@ -37,7 +37,7 @@ struct DocumentRowView: View {
             
             // Preview text
             Text(document.previewText)
-                .font(themeManager.tokens.typography.subheadline.font)
+                .font(themeManager.tokens.typography.caption1.font)
                 .foregroundStyle(themeManager.tokens.colors.textSecondary)
                 .lineLimit(2)
             

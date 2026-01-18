@@ -14,6 +14,14 @@ struct WritaApp: App {
     // MARK: - Shared State
     
     @State private var themeManager = ThemeManager()
+    @State private var toolbarConfig = ToolbarConfiguration()
+    @State private var authManager = AuthManager()
+    @State private var syncService: SyncService?
+    
+    init() {
+        // Initialize sync service after auth manager is created
+        _syncService = State(initialValue: SyncService(authManager: AuthManager()))
+    }
     
     // MARK: - Model Container
     
@@ -41,6 +49,9 @@ struct WritaApp: App {
         WindowGroup {
             MainContentView()
                 .themed(themeManager)
+                .toolbarConfiguration(toolbarConfig)
+                .environment(\.authManager, authManager)
+                .environment(\.syncService, syncService)
         }
         .modelContainer(sharedModelContainer)
         .windowStyle(.automatic)
@@ -55,6 +66,8 @@ struct WritaApp: App {
         Window("Community", id: "community") {
             CommunityWindowView()
                 .themed(themeManager)
+                .toolbarConfiguration(toolbarConfig)
+                .environment(\.authManager, authManager)
         }
         .windowStyle(.automatic)
         .windowToolbarStyle(.unified)
@@ -65,6 +78,9 @@ struct WritaApp: App {
         Settings {
             SettingsView()
                 .themed(themeManager)
+                .toolbarConfiguration(toolbarConfig)
+                .environment(\.authManager, authManager)
+                .environment(\.syncService, syncService)
         }
     }
 }

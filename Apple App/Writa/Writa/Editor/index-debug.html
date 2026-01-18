@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writa Editor</title>
+    
+    <style id="theme-styles">
+        /* Theme styles injected by Swift */
+    </style>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { 
+            height: 100%; 
+            width: 100%; 
+            overflow: hidden; 
+            background: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        }
+        
+        #editor-container {
+            height: 100%;
+            width: 100%;
+            overflow-y: auto;
+            padding: 32px;
+        }
+        
+        /* TipTap Editor Styles */
+        .tiptap {
+            outline: none;
+            min-height: 100%;
+            max-width: 720px;
+            margin: 0 auto;
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--text-color, #333);
+        }
+        
+        .tiptap:focus { outline: none; }
+        
+        .tiptap > p:first-child:empty::before,
+        .tiptap > p.is-empty:first-child::before {
+            content: 'Start writing...';
+            color: var(--placeholder-color, #999);
+            pointer-events: none;
+            float: left;
+            height: 0;
+        }
+        
+        .tiptap p { margin-bottom: 1em; }
+        
+        .tiptap h1 { 
+            font-size: 2em; 
+            font-weight: 700; 
+            margin-bottom: 0.5em; 
+            margin-top: 1em;
+            line-height: 1.2;
+        }
+        .tiptap h2 { 
+            font-size: 1.5em; 
+            font-weight: 600; 
+            margin-bottom: 0.5em; 
+            margin-top: 1em;
+            line-height: 1.3;
+        }
+        .tiptap h3 { 
+            font-size: 1.25em; 
+            font-weight: 600; 
+            margin-bottom: 0.5em; 
+            margin-top: 1em;
+            line-height: 1.4;
+        }
+        
+        .tiptap strong { font-weight: 600; }
+        .tiptap em { font-style: italic; }
+        .tiptap u { text-decoration: underline; }
+        .tiptap s { text-decoration: line-through; }
+        
+        .tiptap code {
+            background: var(--code-bg, rgba(0,0,0,0.05));
+            border-radius: 4px;
+            padding: 0.2em 0.4em;
+            font-family: 'SF Mono', ui-monospace, monospace;
+            font-size: 0.9em;
+        }
+        
+        .tiptap pre {
+            background: var(--code-bg, rgba(0,0,0,0.05));
+            border-radius: 8px;
+            padding: 16px;
+            margin: 1em 0;
+            overflow-x: auto;
+        }
+        .tiptap pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        .tiptap blockquote {
+            border-left: 3px solid var(--accent-color, #007AFF);
+            padding-left: 16px;
+            margin: 1em 0;
+            color: var(--secondary-text, #666);
+        }
+        
+        .tiptap ul, .tiptap ol {
+            padding-left: 24px;
+            margin: 1em 0;
+        }
+        .tiptap li { margin-bottom: 0.25em; }
+        
+        .tiptap ul[data-type="taskList"] {
+            list-style: none;
+            padding-left: 0;
+        }
+        .tiptap ul[data-type="taskList"] li {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .tiptap ul[data-type="taskList"] li > label {
+            flex-shrink: 0;
+        }
+        .tiptap ul[data-type="taskList"] li > div {
+            flex: 1;
+        }
+        .tiptap ul[data-type="taskList"] input[type="checkbox"] {
+            margin-top: 4px;
+            cursor: pointer;
+        }
+        
+        .tiptap a {
+            color: var(--accent-color, #007AFF);
+            text-decoration: none;
+        }
+        .tiptap a:hover { text-decoration: underline; }
+        
+        .tiptap img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 1em 0;
+        }
+        
+        .tiptap hr {
+            border: none;
+            border-top: 1px solid var(--border-color, #ddd);
+            margin: 2em 0;
+        }
+        
+        .tiptap ::selection {
+            background: var(--selection-bg, rgba(0, 122, 255, 0.2));
+        }
+        
+        /* Scrollbar */
+        #editor-container::-webkit-scrollbar { width: 8px; }
+        #editor-container::-webkit-scrollbar-track { background: transparent; }
+        #editor-container::-webkit-scrollbar-thumb { 
+            background: rgba(0,0,0,0.2); 
+            border-radius: 4px; 
+        }
+        
+        /* Status */
+        #status {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 40px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border-radius: 12px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+        }
+        #status.visible { display: block; }
+        #status.error { background: rgba(255,59,48,0.9); }
+        
+        /* Dark mode */
+        @media (prefers-color-scheme: dark) {
+            .tiptap { color: var(--text-color, #f0f0f0); }
+            .tiptap code { background: var(--code-bg, rgba(255,255,255,0.1)); }
+            .tiptap pre { background: var(--code-bg, rgba(255,255,255,0.1)); }
+            .tiptap blockquote { color: var(--secondary-text, #aaa); }
+            #editor-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+        }
+    </style>
+</head>
+<body>
+    <div id="editor-container">
+        <div id="editor"></div>
+    </div>
+    <div id="status">Loading...</div>
+    
+    <script>
+        // CRITICAL DEBUG: Test if JavaScript runs at ALL
+        console.log('🚀 JavaScript is executing!');
+        document.getElementById('status').textContent = 'JS Started';
+        document.getElementById('status').className = 'visible';
+        
+        // Try to send message to Swift immediately
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tiptap) {
+            window.webkit.messageHandlers.tiptap.postMessage({ 
+                type: 'debug', 
+                message: 'JavaScript is alive!' 
+            });
+        } else {
+            console.log('❌ No webkit message handlers available');
+        }
+    </script>
+    
+    <script>
+        // ============================================
+        // Writa Editor - Self-contained TipTap Setup
+        // ============================================
+        
+        var editor = null;
+        var isReady = false;
+        
+        // Status helper
+        function showStatus(text, isError) {
+            var el = document.getElementById('status');
+            el.textContent = text;
+            el.className = 'visible' + (isError ? ' error' : '');
+        }
+        
+        function hideStatus() {
+            document.getElementById('status').className = '';
+        }
+        
+        // Swift communication
+        function sendToSwift(message) {
+            try {
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tiptap) {
+                    window.webkit.messageHandlers.tiptap.postMessage(message);
+                }
+            } catch (e) {
+                console.error('Swift comm error:', e);
+            }
+        }
+        
+        // Editor state for toolbar sync
+        function getEditorState() {
+            if (!editor) return {};
+            return {
+                isBold: editor.isActive('bold'),
+                isItalic: editor.isActive('italic'),
+                isUnderline: editor.isActive('underline'),
+                isStrike: editor.isActive('strike'),
+                isCode: editor.isActive('code'),
+                isCodeBlock: editor.isActive('codeBlock'),
+                isBlockquote: editor.isActive('blockquote'),
+                isBulletList: editor.isActive('bulletList'),
+                isOrderedList: editor.isActive('orderedList'),
+                isTaskList: editor.isActive('taskList'),
+                headingLevel: editor.isActive('heading', { level: 1 }) ? 1 :
+                              editor.isActive('heading', { level: 2 }) ? 2 :
+                              editor.isActive('heading', { level: 3 }) ? 3 : 0,
+                isLink: editor.isActive('link'),
+                canUndo: editor.can().undo(),
+                canRedo: editor.can().redo()
+            };
+        }
+        
+        // Helper to extract extension from UMD module
+        function getExtension(moduleObj, name) {
+            if (!moduleObj) return null;
+            
+            // TipTap UMD modules export the extension class with a capital letter
+            // e.g., '@tiptap/extension-bold' exports { Bold: class }
+            var capitalName = name.charAt(0).toUpperCase() + name.slice(1).replace(/-([a-z])/g, function(g) { 
+                return g[1].toUpperCase(); 
+            });
+            
+            // Try different access patterns
+            if (moduleObj[capitalName]) {
+                sendToSwift({ type: 'debug', message: name + ' using export: ' + capitalName });
+                return moduleObj[capitalName];
+            }
+            if (moduleObj.default) {
+                sendToSwift({ type: 'debug', message: name + ' using default export' });
+                return moduleObj.default;
+            }
+            
+            // Check for any exported class/function (extensions are classes)
+            for (var key in moduleObj) {
+                if (moduleObj.hasOwnProperty(key) && typeof moduleObj[key] === 'function') {
+                    sendToSwift({ type: 'debug', message: name + ' using function export: ' + key });
+                    return moduleObj[key];
+                }
+            }
+            
+            // Last resort
+            return moduleObj;
+        }
+        
+        // Initialize editor with loaded TipTap modules
+        function initEditor(modules) {
+            try {
+                showStatus('Initializing...');
+                
+                // Build extensions array from individual extensions
+                var extensions = [];
+                
+                // Core document structure (required)
+                var doc = getExtension(modules.Document, 'Document');
+                var para = getExtension(modules.Paragraph, 'Paragraph');
+                var txt = getExtension(modules.Text, 'Text');
+                
+                if (!doc || !para || !txt) {
+                    throw new Error('Missing core extensions: Document, Paragraph, or Text');
+                }
+                
+                extensions.push(doc, para, txt);
+                
+                // Formatting extensions
+                if (modules.Bold) extensions.push(getExtension(modules.Bold, 'Bold'));
+                if (modules.Italic) extensions.push(getExtension(modules.Italic, 'Italic'));
+                if (modules.Strike) extensions.push(getExtension(modules.Strike, 'Strike'));
+                if (modules.Underline) extensions.push(getExtension(modules.Underline, 'Underline'));
+                
+                // Heading
+                if (modules.Heading) {
+                    var heading = getExtension(modules.Heading, 'Heading');
+                    if (heading) extensions.push(heading);
+                }
+                
+                // Lists
+                if (modules.BulletList) extensions.push(getExtension(modules.BulletList, 'BulletList'));
+                if (modules.OrderedList) extensions.push(getExtension(modules.OrderedList, 'OrderedList'));
+                if (modules.ListItem) extensions.push(getExtension(modules.ListItem, 'ListItem'));
+                if (modules.TaskList) extensions.push(getExtension(modules.TaskList, 'TaskList'));
+                if (modules.TaskItem) extensions.push(getExtension(modules.TaskItem, 'TaskItem'));
+                
+                // History (undo/redo)
+                if (modules.History) extensions.push(getExtension(modules.History, 'History'));
+                
+                // Placeholder
+                if (modules.Placeholder) extensions.push(getExtension(modules.Placeholder, 'Placeholder'));
+                
+                sendToSwift({ type: 'debug', message: 'Built ' + extensions.length + ' extensions' });
+                
+                // Filter out any null/undefined extensions
+                extensions = extensions.filter(function(ext) { return ext != null; });
+                sendToSwift({ type: 'debug', message: 'After filtering: ' + extensions.length + ' extensions' });
+                
+                // Log first extension details for debugging
+                if (extensions.length > 0) {
+                    var first = extensions[0];
+                    sendToSwift({ type: 'debug', message: 'First ext: type=' + first.type + ', name=' + first.name + ', hasConfig=' + (typeof first.config) });
+                    
+                    // Check if it's already a proper extension or needs initialization
+                    if (first.config && typeof first.config === 'object') {
+                        sendToSwift({ type: 'debug', message: 'Extension has config.name: ' + first.config.name });
+                    }
+                }
+                
+                sendToSwift({ type: 'debug', message: 'Creating Editor with extensions...' });
+                
+                try {
+                    editor = new modules.Editor({
+                        element: document.getElementById('editor'),
+                        extensions: extensions,
+                        content: '<p></p>',
+                        editorProps: {
+                            attributes: { class: 'tiptap' }
+                        },
+                        onUpdate: function(props) {
+                            sendToSwift({
+                                type: 'contentChange',
+                                html: props.editor.getHTML(),
+                                json: props.editor.getJSON(),
+                                text: props.editor.getText()
+                            });
+                        },
+                        onSelectionUpdate: function() {
+                            sendToSwift({ type: 'selectionChange', state: getEditorState() });
+                        },
+                        onFocus: function() { sendToSwift({ type: 'focus' }); },
+                        onBlur: function() { sendToSwift({ type: 'blur' }); }
+                    });
+                    
+                    sendToSwift({ type: 'debug', message: 'Editor created successfully!' });
+                } catch (editorError) {
+                    sendToSwift({ type: 'debug', message: 'Editor creation failed: ' + editorError.message });
+                    sendToSwift({ type: 'debug', message: 'Error stack: ' + (editorError.stack || 'no stack').substring(0, 200) });
+                    throw editorError;
+                }
+                
+                window.editor = editor;
+                isReady = true;
+                
+                hideStatus();
+                
+                // Auto-focus
+                setTimeout(function() { editor.commands.focus(); }, 100);
+                
+                sendToSwift({ type: 'ready' });
+                
+            } catch (err) {
+                showStatus('Editor error: ' + err.message, true);
+                console.error('Init error:', err);
+            }
+        }
+        
+        // Editor bridge for Swift commands
+        window.editorBridge = {
+            setContent: function(html) { if (editor) editor.commands.setContent(html || '<p></p>'); },
+            setContentJSON: function(json) { if (editor && json) editor.commands.setContent(json); },
+            getContent: function() { return editor ? editor.getHTML() : ''; },
+            getContentJSON: function() { return editor ? JSON.stringify(editor.getJSON()) : '{}'; },
+            getText: function() { return editor ? editor.getText() : ''; },
+            toggleBold: function() { if (editor) editor.chain().focus().toggleBold().run(); },
+            toggleItalic: function() { if (editor) editor.chain().focus().toggleItalic().run(); },
+            toggleUnderline: function() { if (editor) editor.chain().focus().toggleUnderline().run(); },
+            toggleStrike: function() { if (editor) editor.chain().focus().toggleStrike().run(); },
+            toggleCode: function() { if (editor) editor.chain().focus().toggleCode().run(); },
+            setHeading: function(level) {
+                if (!editor) return;
+                if (level === 0) editor.chain().focus().setParagraph().run();
+                else editor.chain().focus().toggleHeading({ level: level }).run();
+            },
+            toggleHeading1: function() { if (editor) editor.chain().focus().toggleHeading({ level: 1 }).run(); },
+            toggleHeading2: function() { if (editor) editor.chain().focus().toggleHeading({ level: 2 }).run(); },
+            toggleHeading3: function() { if (editor) editor.chain().focus().toggleHeading({ level: 3 }).run(); },
+            toggleBulletList: function() { if (editor) editor.chain().focus().toggleBulletList().run(); },
+            toggleOrderedList: function() { if (editor) editor.chain().focus().toggleOrderedList().run(); },
+            toggleTaskList: function() { if (editor) editor.chain().focus().toggleTaskList().run(); },
+            toggleBlockquote: function() { if (editor) editor.chain().focus().toggleBlockquote().run(); },
+            toggleCodeBlock: function() { if (editor) editor.chain().focus().toggleCodeBlock().run(); },
+            setHorizontalRule: function() { if (editor) editor.chain().focus().setHorizontalRule().run(); },
+            setLink: function(url) { if (editor && url) editor.chain().focus().setLink({ href: url }).run(); },
+            unsetLink: function() { if (editor) editor.chain().focus().unsetLink().run(); },
+            undo: function() { if (editor) editor.chain().focus().undo().run(); },
+            redo: function() { if (editor) editor.chain().focus().redo().run(); },
+            focus: function() { if (editor) editor.commands.focus(); },
+            blur: function() { if (editor) editor.commands.blur(); },
+            getState: function() { return JSON.stringify(getEditorState()); },
+            setThemeCSS: function(css) {
+                var el = document.getElementById('theme-styles');
+                if (el) el.textContent = css;
+            }
+        };
+        
+        // ============================================
+        // Script Loading
+        // ============================================
+        
+        showStatus('Loading editor...');
+        
+        var scriptsConfig = [
+            // ProseMirror dependencies (required by TipTap core)
+            { name: 'prosemirror-model', global: 'prosemirror-model' },
+            { name: 'prosemirror-state', global: 'prosemirror-state' },
+            { name: 'prosemirror-view', global: 'prosemirror-view' },
+            { name: 'prosemirror-transform', global: 'prosemirror-transform' },
+            
+            // TipTap core
+            { name: 'core', global: '@tiptap/core' },
+            
+            // Load individual extensions instead of StarterKit (which has many dependencies)
+            { name: 'document', global: '@tiptap/extension-document' },
+            { name: 'paragraph', global: '@tiptap/extension-paragraph' },
+            { name: 'text', global: '@tiptap/extension-text' },
+            { name: 'bold', global: '@tiptap/extension-bold' },
+            { name: 'italic', global: '@tiptap/extension-italic' },
+            { name: 'strike', global: '@tiptap/extension-strike' },
+            { name: 'heading', global: '@tiptap/extension-heading' },
+            { name: 'bullet-list', global: '@tiptap/extension-bullet-list' },
+            { name: 'ordered-list', global: '@tiptap/extension-ordered-list' },
+            { name: 'list-item', global: '@tiptap/extension-list-item' },
+            { name: 'history', global: '@tiptap/extension-history' },
+            { name: 'placeholder', global: '@tiptap/extension-placeholder' },
+            { name: 'underline', global: '@tiptap/extension-underline' },
+            { name: 'task-list', global: '@tiptap/extension-task-list' },
+            { name: 'task-item', global: '@tiptap/extension-task-item' }
+        ];
+        
+        var loadedCount = 0;
+        var totalScripts = scriptsConfig.length;
+        var loadErrors = [];
+        
+        sendToSwift({ type: 'debug', message: 'Will load ' + totalScripts + ' scripts' });
+        
+        function tryLoadLocal(config, callback) {
+            var script = document.createElement('script');
+            // Files are in root Resources/, not vendor/ subfolder
+            script.src = config.name + '.umd.js';
+            script.onload = function() { 
+                console.log('✅ Loaded local: ' + config.name); 
+                callback(true); 
+            };
+            script.onerror = function() { 
+                console.log('❌ Failed local: ' + config.name); 
+                callback(false); 
+            };
+            document.head.appendChild(script);
+        }
+        
+        function loadFromCDN(config, callback) {
+            var url;
+            
+            // ProseMirror packages (different versioning and paths)
+            if (config.name.startsWith('prosemirror-')) {
+                url = 'https://cdn.jsdelivr.net/npm/' + config.name + '@1.33.3/dist/index.js';
+            } 
+            // TipTap packages
+            else {
+                url = 'https://cdn.jsdelivr.net/npm/@tiptap/' + 
+                            (config.name === 'core' ? 'core' : 
+                             config.name === 'starter-kit' ? 'starter-kit' :
+                             'extension-' + config.name) + 
+                            '@2.1.13/dist/index.umd.js';
+            }
+            
+            sendToSwift({ type: 'debug', message: 'Loading from CDN: ' + url });
+            
+            var script = document.createElement('script');
+            script.src = url;
+            script.onload = function() { 
+                sendToSwift({ type: 'debug', message: '✅ CDN loaded: ' + config.name }); 
+                
+                // TipTap UMD bundles expect short global names like 'core', not '@tiptap/core'
+                // Create aliases for dependencies to work
+                if (config.name === 'core') {
+                    window.core = window['@tiptap/core'];
+                } else if (config.name.indexOf('-') > -1) {
+                    // Convert hyphenated names: 'bullet-list' -> 'extensionBulletList'
+                    var camelName = 'extension' + config.name.split('-').map(function(part) {
+                        return part.charAt(0).toUpperCase() + part.slice(1);
+                    }).join('');
+                    window[camelName] = window['@tiptap/extension-' + config.name];
+                    sendToSwift({ type: 'debug', message: 'Created alias: ' + camelName });
+                } else {
+                    // Single word extensions: 'bold' -> 'extensionBold'
+                    var aliasName = 'extension' + config.name.charAt(0).toUpperCase() + config.name.slice(1);
+                    window[aliasName] = window['@tiptap/extension-' + config.name];
+                    sendToSwift({ type: 'debug', message: 'Created alias: ' + aliasName });
+                }
+                
+                callback(true); 
+            };
+            script.onerror = function(e) { 
+                sendToSwift({ type: 'debug', message: '❌ CDN failed: ' + config.name + ' - ' + (e.message || 'Network error') }); 
+                callback(false); 
+            };
+            document.head.appendChild(script);
+        }
+        
+        var loadQueue = [];
+        var isLoadingCore = false;
+        
+        function loadScript(config) {
+            // Core must load first, then extensions
+            if (config.name === 'core') {
+                isLoadingCore = true;
+                loadFromCDN(config, function(cdnSuccess) {
+                    isLoadingCore = false;
+                    if (cdnSuccess) {
+                        onScriptLoaded(config.name, true);
+                        // Now load all queued extensions
+                        loadQueue.forEach(function(queuedConfig) {
+                            loadScriptActual(queuedConfig);
+                        });
+                        loadQueue = [];
+                    } else {
+                        onScriptLoaded(config.name, false);
+                    }
+                });
+            } else {
+                // Extensions need to wait for core
+                if (isLoadingCore || !window.core) {
+                    loadQueue.push(config);
+                    sendToSwift({ type: 'debug', message: 'Queued ' + config.name + ' (waiting for core)' });
+                } else {
+                    loadScriptActual(config);
+                }
+            }
+        }
+        
+        function loadScriptActual(config) {
+            loadFromCDN(config, function(cdnSuccess) {
+                if (cdnSuccess) {
+                    onScriptLoaded(config.name, true);
+                } else {
+                    tryLoadLocal(config, function(localSuccess) {
+                        onScriptLoaded(config.name, localSuccess);
+                    });
+                }
+            });
+        }
+        
+        function onScriptLoaded(name, success) {
+            loadedCount++;
+            if (!success) loadErrors.push(name);
+            
+            showStatus('Loading... (' + loadedCount + '/' + totalScripts + ')');
+            
+            if (loadedCount >= totalScripts) {
+                if (loadErrors.length > 0) {
+                    showStatus('Failed to load: ' + loadErrors.join(', '), true);
+                } else {
+                    // Extract core package
+                    var corePackage = window['@tiptap/core'];
+                    
+                    // All scripts loaded, extract modules
+                    sendToSwift({ type: 'debug', message: 'corePackage.Editor type: ' + typeof corePackage.Editor });
+                    sendToSwift({ type: 'debug', message: 'corePackage has Editor: ' + ('Editor' in corePackage) });
+                    
+                    // Debug: check what's actually exported by an extension
+                    var testExt = window['@tiptap/extension-document'];
+                    if (testExt) {
+                        var testKeys = [];
+                        for (var k in testExt) {
+                            if (testExt.hasOwnProperty(k)) {
+                                testKeys.push(k + '(' + typeof testExt[k] + ')');
+                            }
+                        }
+                        sendToSwift({ type: 'debug', message: 'Document module exports: ' + testKeys.join(', ') });
+                    }
+                    
+                    var modules = {
+                        Editor: corePackage.Editor,
+                        Document: window['@tiptap/extension-document'],
+                        Paragraph: window['@tiptap/extension-paragraph'],
+                        Text: window['@tiptap/extension-text'],
+                        Bold: window['@tiptap/extension-bold'],
+                        Italic: window['@tiptap/extension-italic'],
+                        Strike: window['@tiptap/extension-strike'],
+                        Heading: window['@tiptap/extension-heading'],
+                        BulletList: window['@tiptap/extension-bullet-list'],
+                        OrderedList: window['@tiptap/extension-ordered-list'],
+                        ListItem: window['@tiptap/extension-list-item'],
+                        History: window['@tiptap/extension-history'],
+                        Placeholder: window['@tiptap/extension-placeholder'],
+                        Underline: window['@tiptap/extension-underline'],
+                        TaskList: window['@tiptap/extension-task-list'],
+                        TaskItem: window['@tiptap/extension-task-item']
+                    };
+                    
+                    sendToSwift({ 
+                        type: 'debug', 
+                        message: 'Extracted Editor type: ' + typeof modules.Editor
+                    });
+                    
+                    if (!modules.Editor) {
+                        showStatus('Error: Missing Editor', true);
+                        return;
+                    }
+                    
+                    sendToSwift({ type: 'debug', message: 'Initializing with ' + Object.keys(modules).length + ' modules' });
+                    initEditor(modules);
+                }
+            }
+        }
+        
+        // Start loading scripts
+        sendToSwift({ type: 'debug', message: 'Starting to load ' + scriptsConfig.length + ' scripts...' });
+        scriptsConfig.forEach(function(config) {
+            sendToSwift({ type: 'debug', message: 'Queueing: ' + config.name });
+            loadScript(config);
+        });
+    </script>
+</body>
+</html>
