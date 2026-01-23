@@ -79,6 +79,7 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
     case bulletList
     case numberedList
     case taskList
+    case taskCard
     
     // Blocks
     case quote
@@ -115,6 +116,7 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
         case .bulletList: return "Bullets"
         case .numberedList: return "Numbers"
         case .taskList: return "Tasks"
+        case .taskCard: return "Task Card"
         case .quote: return "Quote"
         case .codeBlock: return "Code Block"
         case .divider: return "Divider"
@@ -145,6 +147,7 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
         case .bulletList: return "list.bullet"
         case .numberedList: return "list.number"
         case .taskList: return "checklist"
+        case .taskCard: return "checklist.unchecked"
         case .quote: return "text.quote"
         case .codeBlock: return "curlybraces"
         case .divider: return "minus"
@@ -173,6 +176,7 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
         case .bulletList: return "⌘⇧8"
         case .numberedList: return "⌘⇧7"
         case .taskList: return "⌘⇧9"
+        case .taskCard: return "⌘⇧T"
         case .quote: return "⌘⇧B"
         case .codeBlock: return "⌘⌥C"
         case .image: return "⌘⇧I"
@@ -181,14 +185,19 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
         }
     }
     
-    /// Custom label style (nil = use icon, otherwise use text like "T")
+    /// Custom label style (nil = use icon, otherwise use text)
     var customLabel: String? {
         switch self {
-        case .title: return "T"
-        case .heading: return "H"
-        case .body: return "¶"
+        case .title: return "Title"
+        case .heading: return "Heading"
+        case .body: return "Body"
         default: return nil
         }
+    }
+    
+    /// Whether this tool uses a text label (wider button)
+    var usesTextLabel: Bool {
+        customLabel != nil && customLabel!.count > 2
     }
     
     var category: ToolCategory {
@@ -199,7 +208,7 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
             return .formatting
         case .alignLeft, .alignCenter, .alignRight, .alignJustify:
             return .alignment
-        case .bulletList, .numberedList, .taskList:
+        case .bulletList, .numberedList, .taskList, .taskCard:
             return .lists
         case .quote, .codeBlock, .divider:
             return .blocks
@@ -281,8 +290,8 @@ class ToolbarConfiguration {
         // Group 2: Text Formatting
         .tool(.bold), .tool(.italic), .tool(.underline), .tool(.strikethrough),
         .separator,
-        // Group 3: Task, Table, Image
-        .tool(.taskList), .tool(.table), .tool(.image)
+        // Group 3: Task Card, Table, Image
+        .tool(.taskCard), .tool(.table), .tool(.image)
     ]
     
     // MARK: - Item Management
@@ -327,12 +336,12 @@ class ToolbarConfiguration {
     
     private func saveToDefaults() {
         if let encoded = try? JSONEncoder().encode(visibleItems) {
-            UserDefaults.standard.set(encoded, forKey: "toolbar.configuration.v2")
+            UserDefaults.standard.set(encoded, forKey: "toolbar.configuration.v3")
         }
     }
     
     private func loadFromDefaults() {
-        if let data = UserDefaults.standard.data(forKey: "toolbar.configuration.v2"),
+        if let data = UserDefaults.standard.data(forKey: "toolbar.configuration.v3"),
            let decoded = try? JSONDecoder().decode([ToolbarEntry].self, from: data) {
             visibleItems = decoded
         }

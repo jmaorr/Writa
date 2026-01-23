@@ -47,7 +47,7 @@ struct SettingsView: View {
 // MARK: - General Settings
 
 struct GeneralSettingsView: View {
-    @AppStorage("defaultFolder") private var defaultFolder = "inbox"
+    @AppStorage("defaultWorkspace") private var defaultWorkspace = "inbox"
     @AppStorage("showWordCount") private var showWordCount = true
     @AppStorage("autoSave") private var autoSave = true
     @AppStorage("autoSaveInterval") private var autoSaveInterval = 30.0
@@ -55,9 +55,9 @@ struct GeneralSettingsView: View {
     var body: some View {
         Form {
             Section("Documents") {
-                Picker("Default Location", selection: $defaultFolder) {
+                Picker("Default Location", selection: $defaultWorkspace) {
                     Text("Inbox").tag("inbox")
-                    Text("Last Used Folder").tag("last")
+                    Text("Last Used Workspace").tag("last")
                 }
                 .pickerStyle(.menu)
                 

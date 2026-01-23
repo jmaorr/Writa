@@ -1,28 +1,29 @@
 //
-//  Folder.swift
+//  Workspace.swift
 //  Writa
 //
-//  Folder model for organizing documents hierarchically.
+//  Workspace model for organizing documents.
+//  Workspaces can be nested infinitely (workspaces within workspaces).
 //
 
 import Foundation
 import SwiftData
 
 @Model
-final class Folder {
+final class Workspace {
     var id: UUID
     var name: String
     var icon: String  // SF Symbol name
     var color: String  // Hex color or system color name
     var sortOrder: Int
     
-    // Hierarchy
-    var parent: Folder?
-    @Relationship(deleteRule: .cascade, inverse: \Folder.parent)
-    var children: [Folder]
+    // Hierarchy (for nested workspaces)
+    var parent: Workspace?
+    @Relationship(deleteRule: .cascade, inverse: \Workspace.parent)
+    var children: [Workspace]
     
-    // Documents in this folder
-    @Relationship(deleteRule: .nullify, inverse: \Document.folder)
+    // Documents in this workspace
+    @Relationship(deleteRule: .nullify, inverse: \Document.workspace)
     var documents: [Document]
     
     // Metadata
@@ -34,7 +35,7 @@ final class Folder {
         name: String,
         icon: String = "folder",
         color: String = "systemBlue",
-        parent: Folder? = nil
+        parent: Workspace? = nil
     ) {
         self.id = UUID()
         self.name = name
@@ -52,20 +53,27 @@ final class Folder {
 
 // MARK: - Convenience Extensions
 
-extension Folder {
+extension Workspace {
     var documentCount: Int {
-        documents.count
+        documents.filter { !$0.isDeleted }.count
     }
     
     var totalDocumentCount: Int {
-        documents.count + children.reduce(0) { $0 + $1.totalDocumentCount }
+        documentCount + children.reduce(0) { $0 + $1.totalDocumentCount }
     }
     
+    /// Whether this is a root workspace (top-level)
     var isRoot: Bool {
         parent == nil
     }
     
-    var depth: Int {
+    /// Whether this is a nested workspace
+    var isNested: Bool {
+        parent != nil
+    }
+    
+    /// Nesting depth (0 for root, 1 for first-level nested, etc.)
+    var nestingDepth: Int {
         var count = 0
         var current = parent
         while current != nil {
@@ -73,5 +81,10 @@ extension Folder {
             current = current?.parent
         }
         return count
+    }
+    
+    /// Sorted children for display
+    var sortedChildren: [Workspace] {
+        children.sorted { $0.sortOrder < $1.sortOrder }
     }
 }

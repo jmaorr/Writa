@@ -2,24 +2,28 @@
 //  SidebarItem.swift
 //  Writa
 //
-//  Navigation model for sidebar items (both static sections and dynamic folders).
+//  Navigation model for sidebar items (sections, workspaces, and static items).
 //
 
 import Foundation
 import SwiftUI
 
-// MARK: - Sidebar Section
+// MARK: - Sidebar Section Type
 
-enum SidebarSection: String, CaseIterable, Identifiable {
-    case library = "Library"
-    case folders = "Folders"
-    case tags = "Tags"
-    case smart = "Smart Filters"
-    case community = "Community"
+enum SidebarSectionType: Hashable, Identifiable {
+    case library                    // Static "Library" section
+    case workspaceSection(UUID)     // User-created sections
+    case smartFilters               // Static "Smart Filters" section
+    case community                  // Static "Community" section
     
-    var id: String { rawValue }
-    
-    var displayName: String { rawValue }
+    var id: String {
+        switch self {
+        case .library: return "library"
+        case .workspaceSection(let id): return "section-\(id.uuidString)"
+        case .smartFilters: return "smart-filters"
+        case .community: return "community"
+        }
+    }
 }
 
 // MARK: - Sidebar Item Type
@@ -30,9 +34,10 @@ enum SidebarItemType: Hashable, Identifiable {
     case inbox
     case favorites
     case recent
+    case trash
     
-    // Folders section
-    case folder(UUID)
+    // Workspaces (user-created)
+    case workspace(UUID)
     
     // Tags section
     case tag(String)
@@ -49,7 +54,8 @@ enum SidebarItemType: Hashable, Identifiable {
         case .inbox: return "inbox"
         case .favorites: return "favorites"
         case .recent: return "recent"
-        case .folder(let id): return "folder-\(id.uuidString)"
+        case .trash: return "trash"
+        case .workspace(let id): return "workspace-\(id.uuidString)"
         case .tag(let name): return "tag-\(name)"
         case .smartFilter(let type): return "smart-\(type.rawValue)"
         case .openCommunity: return "community"
@@ -75,15 +81,13 @@ struct SidebarItem: Identifiable, Hashable {
     let icon: String
     let iconColor: Color?
     let badge: Int?
-    let section: SidebarSection
     
     init(
         type: SidebarItemType,
         title: String,
         icon: String,
         iconColor: Color? = nil,
-        badge: Int? = nil,
-        section: SidebarSection
+        badge: Int? = nil
     ) {
         self.id = type.id
         self.type = type
@@ -91,7 +95,6 @@ struct SidebarItem: Identifiable, Hashable {
         self.icon = icon
         self.iconColor = iconColor
         self.badge = badge
-        self.section = section
     }
     
     func hash(into hasher: inout Hasher) {
@@ -109,48 +112,52 @@ extension SidebarItem {
     static let allDocuments = SidebarItem(
         type: .allDocuments,
         title: "All Documents",
-        icon: "doc.text",
-        section: .library
+        icon: "doc.text"
     )
     
     static let inbox = SidebarItem(
         type: .inbox,
         title: "Inbox",
-        icon: "tray",
-        section: .library
+        icon: "tray"
     )
     
     static let favorites = SidebarItem(
         type: .favorites,
         title: "Favorites",
         icon: "star",
-        iconColor: .yellow,
-        section: .library
+        iconColor: .yellow
     )
     
     static let recent = SidebarItem(
         type: .recent,
         title: "Recent",
-        icon: "clock",
-        section: .library
+        icon: "clock"
     )
+    
+    static func trash(count: Int) -> SidebarItem {
+        SidebarItem(
+            type: .trash,
+            title: "Trash",
+            icon: count > 0 ? "trash.fill" : "trash",
+            iconColor: .secondary,
+            badge: count > 0 ? count : nil
+        )
+    }
     
     static let openCommunity = SidebarItem(
         type: .openCommunity,
         title: "Open Community",
         icon: "globe",
-        iconColor: .blue,
-        section: .community
+        iconColor: .blue
     )
     
-    static func folder(_ folder: Folder) -> SidebarItem {
+    static func workspace(_ workspace: Workspace) -> SidebarItem {
         SidebarItem(
-            type: .folder(folder.id),
-            title: folder.name,
-            icon: folder.icon,
-            iconColor: Color(folder.color),
-            badge: folder.documentCount,
-            section: .folders
+            type: .workspace(workspace.id),
+            title: workspace.name,
+            icon: workspace.icon,
+            iconColor: Color(workspace.color),
+            badge: workspace.documentCount > 0 ? workspace.documentCount : nil
         )
     }
     
@@ -159,8 +166,7 @@ extension SidebarItem {
             type: .tag(name),
             title: name,
             icon: "tag",
-            badge: count,
-            section: .tags
+            badge: count > 0 ? count : nil
         )
     }
     
@@ -176,8 +182,7 @@ extension SidebarItem {
         return SidebarItem(
             type: .smartFilter(type),
             title: type.rawValue,
-            icon: icon,
-            section: .smart
+            icon: icon
         )
     }
 }

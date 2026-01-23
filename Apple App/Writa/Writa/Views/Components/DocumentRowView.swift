@@ -14,7 +14,7 @@ struct DocumentRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             // Title row
-            HStack {
+            HStack(spacing: 6) {
                 if document.isPinned {
                     Image(systemName: "pin.fill")
                         .font(.caption2)
@@ -22,8 +22,8 @@ struct DocumentRowView: View {
                 }
                 
                 Text(document.displayTitle)
-                    .font(themeManager.tokens.typography.headline.font)
-                    .foregroundStyle(themeManager.tokens.colors.textPrimary)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
                     .lineLimit(1)
                 
                 Spacer()
@@ -35,55 +35,41 @@ struct DocumentRowView: View {
                 }
             }
             
-            // Preview text
-            Text(document.previewText)
-                .font(themeManager.tokens.typography.caption1.font)
-                .foregroundStyle(themeManager.tokens.colors.textSecondary)
-                .lineLimit(2)
+            // Preview text (only show if there's content)
+            if !document.previewText.isEmpty {
+                Text(document.previewText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
             
             // Metadata row
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 Text(document.formattedDate)
-                    .font(themeManager.tokens.typography.caption1.font)
-                    .foregroundStyle(themeManager.tokens.colors.textTertiary)
-                
-                if document.wordCount > 0 {
-                    Text("·")
-                        .foregroundStyle(themeManager.tokens.colors.textTertiary)
-                    
-                    Text("\(document.wordCount) words")
-                        .font(themeManager.tokens.typography.caption1.font)
-                        .foregroundStyle(themeManager.tokens.colors.textTertiary)
-                }
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
                 
                 if document.isDirty {
-                    Text("·")
-                        .foregroundStyle(themeManager.tokens.colors.textTertiary)
-                    
-                    Image(systemName: "circle.fill")
-                        .font(.system(size: 6))
-                        .foregroundStyle(.orange)
+                    Circle()
+                        .fill(.orange)
+                        .frame(width: 5, height: 5)
                 }
                 
                 Spacer()
                 
-                // Tags
+                // Tags (compact)
                 if !document.tags.isEmpty {
                     HStack(spacing: 4) {
                         ForEach(document.tags.prefix(2), id: \.self) { tag in
                             Text("#\(tag)")
                                 .font(.caption2)
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(.quaternary)
-                                .clipShape(Capsule())
+                                .foregroundStyle(.tertiary)
                         }
                         
                         if document.tags.count > 2 {
                             Text("+\(document.tags.count - 2)")
                                 .font(.caption2)
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(.quaternary)
                         }
                     }
                 }
@@ -93,21 +79,39 @@ struct DocumentRowView: View {
     }
 }
 
+// MARK: - Document Row Button (for List without native selection)
+
+struct DocumentRowButton: View {
+    let document: Document
+    let isSelected: Bool
+    let onSelect: () -> Void
+    
+    var body: some View {
+        DocumentRowView(document: document)
+            .contentShape(Rectangle())
+            .draggable(SidebarDragItem.document(document.id))
+            .onTapGesture {
+                onSelect()
+            }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
     let sampleDoc = Document(
-        title: "Product Strategy 2025",
-        summary: "Q1 objectives and key results for the product team.",
-        plainText: "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+        title: "",
+        summary: "",
+        plainText: "Meeting Notes for Q1 Planning\n\nDiscussed roadmap priorities and team allocation for the upcoming quarter."
     )
     sampleDoc.isFavorite = true
-    sampleDoc.tags = ["strategy", "product", "okr"]
-    sampleDoc.wordCount = 1234
+    sampleDoc.tags = ["meetings", "planning"]
+    
+    let emptyDoc = Document(title: "", plainText: "")
     
     return List {
         DocumentRowView(document: sampleDoc)
-        DocumentRowView(document: Document(title: "Untitled Note"))
+        DocumentRowView(document: emptyDoc)
     }
     .frame(width: 350, height: 200)
 }

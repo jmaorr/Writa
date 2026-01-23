@@ -388,13 +388,16 @@ struct TiptapWebView: NSViewRepresentable {
                 
             case "contentChange":
                 let html = body["html"] as? String ?? ""
-                let json = body["json"] as? [String: Any] ?? [:]
                 let text = body["text"] as? String ?? ""
                 
-                // Convert JSON to string
+                // JSON comes as a string from JavaScript (already stringified)
                 let jsonString: String
-                if let jsonData = try? JSONSerialization.data(withJSONObject: json),
-                   let jsonStr = String(data: jsonData, encoding: .utf8) {
+                if let jsonStr = body["json"] as? String {
+                    jsonString = jsonStr
+                } else if let jsonDict = body["json"] as? [String: Any],
+                          let jsonData = try? JSONSerialization.data(withJSONObject: jsonDict),
+                          let jsonStr = String(data: jsonData, encoding: .utf8) {
+                    // Fallback if it comes as dictionary
                     jsonString = jsonStr
                 } else {
                     jsonString = "{}"
@@ -485,6 +488,7 @@ struct EditorState {
     var isBulletList: Bool = false
     var isOrderedList: Bool = false
     var isTaskList: Bool = false
+    var isTaskCard: Bool = false
     var isHighlight: Bool = false
     var isSubscript: Bool = false
     var isSuperscript: Bool = false
@@ -507,6 +511,7 @@ struct EditorState {
         isBulletList = dict["isBulletList"] as? Bool ?? false
         isOrderedList = dict["isOrderedList"] as? Bool ?? false
         isTaskList = dict["isTaskList"] as? Bool ?? false
+        isTaskCard = dict["isTaskCard"] as? Bool ?? false
         isHighlight = dict["isHighlight"] as? Bool ?? false
         isSubscript = dict["isSubscript"] as? Bool ?? false
         isSuperscript = dict["isSuperscript"] as? Bool ?? false
@@ -538,6 +543,10 @@ extension WKWebView {
     func toggleBulletList() { evaluateJavaScript("editorBridge.toggleBulletList()") }
     func toggleOrderedList() { evaluateJavaScript("editorBridge.toggleOrderedList()") }
     func toggleTaskList() { evaluateJavaScript("editorBridge.toggleTaskList()") }
+    
+    // Task Cards
+    func toggleTaskCard() { evaluateJavaScript("editorBridge.toggleTaskCard()") }
+    func insertTaskCard() { evaluateJavaScript("editorBridge.insertTaskCard()") }
     
     // Blocks
     func toggleBlockquote() { evaluateJavaScript("editorBridge.toggleBlockquote()") }

@@ -17,18 +17,15 @@ struct WritaApp: App {
     @State private var toolbarConfig = ToolbarConfiguration()
     @State private var authManager = AuthManager()
     @State private var syncService: SyncService?
-    
-    init() {
-        // Initialize sync service after auth manager is created
-        _syncService = State(initialValue: SyncService(authManager: AuthManager()))
-    }
+    @State private var documentManager = DocumentManager()
+    @State private var autosaveManager = AutosaveManager()
     
     // MARK: - Model Container
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Document.self,
-            Folder.self,
+            Workspace.self,
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
@@ -41,6 +38,11 @@ struct WritaApp: App {
             fatalError("Could not create ModelContainer: \(error)")
         }
     }()
+    
+    init() {
+        // Services will be configured after model context is available
+        _syncService = State(initialValue: SyncService(authManager: AuthManager()))
+    }
 
     // MARK: - Body
     
@@ -52,6 +54,17 @@ struct WritaApp: App {
                 .toolbarConfiguration(toolbarConfig)
                 .environment(\.authManager, authManager)
                 .environment(\.syncService, syncService)
+                .environment(\.documentManager, documentManager)
+                .environment(\.autosaveManager, autosaveManager)
+                .onAppear {
+                    // Configure services with model context
+                    let context = sharedModelContainer.mainContext
+                    documentManager.configure(with: context)
+                    autosaveManager.configure(documentManager: documentManager)
+                    
+                    // Clean up expired trash on app launch
+                    documentManager.cleanupExpiredTrash()
+                }
         }
         .modelContainer(sharedModelContainer)
         .windowStyle(.automatic)
@@ -92,17 +105,15 @@ struct WritaCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     
     var body: some Commands {
-        // MARK: - File Menu
-        CommandGroup(after: .newItem) {
+        // MARK: - File Menu (Replace default New to prevent New Window)
+        CommandGroup(replacing: .newItem) {
             Button("New Document") {
-                // Will be handled by focused scene
+                NotificationCenter.default.post(name: .createNewDocument, object: nil)
             }
             .keyboardShortcut("n", modifiers: .command)
             
-            Divider()
-            
-            Button("New Folder") {
-                // Will be handled by focused scene
+            Button("New Workspace") {
+                NotificationCenter.default.post(name: .createNewWorkspace, object: nil)
             }
             .keyboardShortcut("n", modifiers: [.command, .shift])
         }

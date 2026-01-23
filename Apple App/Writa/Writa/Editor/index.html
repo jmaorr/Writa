@@ -2,187 +2,253 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <style id="theme-styles"></style>
-    <style>
-        body {
-            margin: 0;
-            padding: 32px;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    <style id="base-styles">
+        * { box-sizing: border-box; }
+        html, body { 
+            margin: 0; 
+            padding: 0; 
             background: transparent;
-        }
-        
-        .tiptap {
-            outline: none;
-            max-width: 720px;
-            margin: 0 auto;
-            font-size: 16px;
-            line-height: 1.6;
-            min-height: 500px;
-        }
-        
-        .tiptap p.is-editor-empty:first-child::before {
-            content: 'Start writing...';
-            color: #999;
-            pointer-events: none;
-            float: left;
-            height: 0;
-        }
-        
-        /* Typography */
-        .tiptap h1 { font-size: 2em; font-weight: 700; margin: 0.5em 0; }
-        .tiptap h2 { font-size: 1.5em; font-weight: 600; margin: 0.5em 0; }
-        .tiptap h3 { font-size: 1.25em; font-weight: 600; margin: 0.5em 0; }
-        .tiptap p { margin: 0.75em 0; }
-        
-        /* Text formatting */
-        .tiptap strong { font-weight: 600; }
-        .tiptap em { font-style: italic; }
-        .tiptap u { text-decoration: underline; }
-        .tiptap s { text-decoration: line-through; }
-        .tiptap mark { background-color: #fef08a; padding: 0.1em 0.2em; border-radius: 2px; }
-        .tiptap code { 
-            background: rgba(0,0,0,0.05); 
-            padding: 2px 6px; 
-            border-radius: 4px; 
-            font-family: ui-monospace, monospace;
-            font-size: 0.9em;
-        }
-        
-        /* Lists */
-        .tiptap ul, .tiptap ol { padding-left: 24px; margin: 1em 0; }
-        .tiptap li { margin-bottom: 0.25em; }
-        
-        /* Task lists */
-        .tiptap ul[data-type="taskList"] { list-style: none; padding: 0; }
-        .tiptap ul[data-type="taskList"] li { display: flex; gap: 8px; align-items: flex-start; }
-        .tiptap ul[data-type="taskList"] input { margin-top: 4px; cursor: pointer; }
-        .tiptap ul[data-type="taskList"] li[data-checked="true"] > div { 
-            text-decoration: line-through; 
-            opacity: 0.6; 
-        }
-        
-        /* Blockquotes */
-        .tiptap blockquote {
-            border-left: 3px solid #007AFF;
-            padding-left: 16px;
-            margin: 1em 0;
-            color: #666;
-            font-style: italic;
-        }
-        
-        /* Code blocks */
-        .tiptap pre {
-            background: rgba(0,0,0,0.05);
-            border-radius: 8px;
-            padding: 16px;
-            margin: 1em 0;
-            overflow-x: auto;
-            font-family: ui-monospace, monospace;
-        }
-        .tiptap pre code { background: none; padding: 0; }
-        
-        /* Links */
-        .tiptap a {
-            color: #007AFF;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .tiptap a:hover { text-decoration: underline; }
-        
-        /* Images */
-        .tiptap img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
-            margin: 1em 0;
-            display: block;
-        }
-        .tiptap img.ProseMirror-selectednode {
-            outline: 2px solid #007AFF;
-            outline-offset: 2px;
-        }
-        
-        /* Horizontal rule */
-        .tiptap hr {
-            border: none;
-            border-top: 2px solid #e5e5e5;
-            margin: 2em 0;
-        }
-        
-        /* Tables */
-        .tiptap table {
-            border-collapse: collapse;
-            table-layout: fixed;
-            width: 100%;
-            margin: 1em 0;
+            height: 100%;
             overflow: hidden;
         }
-        .tiptap td, .tiptap th {
-            min-width: 1em;
-            border: 1px solid #ddd;
-            padding: 8px 12px;
-            vertical-align: top;
-            box-sizing: border-box;
-            position: relative;
+        #editor {
+            height: 100%;
+            overflow-y: auto;
         }
-        .tiptap th {
-            font-weight: 600;
-            text-align: left;
-            background-color: rgba(0,0,0,0.03);
-        }
+        .tiptap { outline: none; }
         .tiptap .selectedCell:after {
             z-index: 2;
             position: absolute;
             content: "";
-            left: 0;
-            right: 0;
-            top: 0;
-            bottom: 0;
+            left: 0; right: 0; top: 0; bottom: 0;
             background: rgba(0, 122, 255, 0.1);
             pointer-events: none;
         }
         
-        /* Text alignment */
-        .tiptap .text-left { text-align: left; }
-        .tiptap .text-center { text-align: center; }
-        .tiptap .text-right { text-align: right; }
-        .tiptap .text-justify { text-align: justify; }
+        /* Task Card Styles */
+        .task-card-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
         
-        /* Subscript & Superscript */
-        .tiptap sub { vertical-align: sub; font-size: 0.8em; }
-        .tiptap sup { vertical-align: super; font-size: 0.8em; }
+        .task-card {
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px 14px;
+            margin: 6px 0;
+            border: 1px solid var(--writa-border-color, rgba(128, 128, 128, 0.2));
+            border-radius: 16px;
+            background: var(--writa-card-bg, rgba(128, 128, 128, 0.05));
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
         
-        /* Selection */
-        .tiptap ::selection { background: rgba(0, 122, 255, 0.2); }
+        .task-card:hover {
+            border-color: var(--writa-border-hover, rgba(128, 128, 128, 0.3));
+        }
         
-        /* Placeholder */
-        .tiptap .is-empty::before {
-            content: attr(data-placeholder);
-            float: left;
-            color: #999;
+        .task-card:focus-within {
+            border-color: var(--writa-accent-color, #007AFF);
+            box-shadow: 0 0 0 3px var(--writa-accent-shadow, rgba(0, 122, 255, 0.15));
+        }
+        
+        .task-card.is-completed {
+            opacity: 0.6;
+        }
+        
+        .task-card.is-completed .task-card-title {
+            text-decoration: line-through;
+            color: var(--writa-text-secondary, #888);
+        }
+        
+        .task-card-checkbox {
+            flex-shrink: 0;
+            width: 18px;
+            height: 18px;
+            margin-top: 2px; /* Align with first line of title */
+            border: 2px solid var(--writa-checkbox-border, rgba(128, 128, 128, 0.4));
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            background: transparent;
+            user-select: none;
+        }
+        
+        .task-card-checkbox:hover {
+            border-color: var(--writa-accent-color, #007AFF);
+            background: var(--writa-accent-shadow, rgba(0, 122, 255, 0.1));
+        }
+        
+        .task-card.is-completed .task-card-checkbox {
+            background: var(--writa-success-color, #34C759);
+            border-color: var(--writa-success-color, #34C759);
+        }
+        
+        .task-card.is-completed .task-card-checkbox::after {
+            content: '✓';
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            line-height: 1;
+        }
+        
+        .task-card-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .task-card-title {
+            font-weight: 500;
+            font-size: 0.9em;
+            line-height: 1.4;
+            outline: none;
+            min-height: 1.4em;
+        }
+        
+        .task-card-title.is-empty::before,
+        .task-card-title:empty::before {
+            content: 'What needs to be done?';
+            color: var(--writa-text-placeholder, #999);
             pointer-events: none;
+            float: left;
             height: 0;
         }
         
-        /* Dark mode support */
-        @media (prefers-color-scheme: dark) {
-            .tiptap { color: #f0f0f0; }
-            .tiptap code { background: rgba(255,255,255,0.1); }
-            .tiptap pre { background: rgba(255,255,255,0.1); }
-            .tiptap blockquote { color: #aaa; border-left-color: #0a84ff; }
-            .tiptap mark { background-color: #854d0e; color: #fef08a; }
-            .tiptap td, .tiptap th { border-color: #444; }
-            .tiptap th { background-color: rgba(255,255,255,0.05); }
-            .tiptap hr { border-top-color: #444; }
+        .task-card-description {
+            font-size: 0.8em;
+            color: var(--writa-text-secondary, #666);
+            line-height: 1.4;
+            margin-top: 2px;
+            outline: none;
+            min-height: 1.4em;
+            transition: opacity 0.15s ease, min-height 0.15s ease;
+        }
+        
+        /* Description nodes are now dynamically added/removed, not hidden */
+        
+        .task-card-title:focus,
+        .task-card-description:focus {
+            outline: none;
+        }
+        
+        /* TipTap Placeholder styling */
+        .tiptap .is-empty::before {
+            color: var(--writa-text-placeholder, #999);
+            pointer-events: none;
+            float: left;
+            height: 0;
+        }
+        
+        .tiptap .task-card-title.is-empty::before {
+            content: 'What needs to be done?';
+        }
+        
+        .tiptap .task-card-description.is-empty::before {
+            content: 'Add notes...';
+        }
+        
+        /* Fallback placeholder using :empty (for when .is-empty isn't added) */
+        .task-card-title:not(.is-empty):empty::before,
+        .task-card-title > br:only-child::before {
+            content: 'What needs to be done?';
+            color: var(--writa-text-placeholder, #999);
+            pointer-events: none;
+        }
+        
+        .task-card-description:not(.is-empty):empty::before,
+        .task-card-description > br:only-child::before {
+            content: 'Press Tab for description';
+            color: var(--writa-text-placeholder, #999);
+            pointer-events: none;
+        }
+        
+        /* Floating Task Card Action Bar */
+        #task-action-bar {
+            display: none;
+            position: fixed;
+            gap: 4px;
+            align-items: center;
+            z-index: 1000;
+            pointer-events: auto;
+        }
+        
+        #task-action-bar.visible {
+            display: flex;
+        }
+        
+        .task-card-action {
+            display: inline-flex;
+            align-items: center;
+            height: 20px;
+            gap: 3px;
+            padding: 0 6px;
+            font-size: 10px;
+            color: var(--writa-text-secondary, #666);
+            background: var(--writa-chip-bg, rgba(128, 128, 128, 0.08));
+            border: 1px solid var(--writa-border-color, rgba(128, 128, 128, 0.15));
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+        
+        .task-card-action:hover {
+            background: var(--writa-chip-hover, rgba(128, 128, 128, 0.15));
+            border-color: var(--writa-border-hover, rgba(128, 128, 128, 0.25));
+            color: var(--writa-text-primary, #333);
+        }
+        
+        .task-card-action-shortcut {
+            font-size: 9px;
+            opacity: 0.6;
+        }
+        
+        .task-card-action--delete:hover {
+            background: rgba(255, 59, 48, 0.1);
+            border-color: rgba(255, 59, 48, 0.3);
+            color: #ff3b30;
+        }
+        
+        .task-card-action:active {
+            transform: scale(0.95);
+        }
+        
+        .task-card-action-shortcut {
+            font-weight: 600;
+            opacity: 0.7;
+        }
+        
+        .task-card-action--delete:hover {
+            background: rgba(255, 59, 48, 0.15);
+            color: #FF3B30;
         }
     </style>
+    <style id="theme-styles"></style>
 </head>
 <body>
     <div id="editor"></div>
     
-    <!-- Use CDN for now - will switch to local after testing -->
+    <!-- Floating action bar for task cards -->
+    <div id="task-action-bar">
+        <button type="button" class="task-card-action" data-action="new-task">
+            <span class="task-card-action-shortcut">↵</span> New Task
+        </button>
+        <button type="button" class="task-card-action" data-action="description">
+            <span class="task-card-action-shortcut">⇥</span> Description
+        </button>
+        <button type="button" class="task-card-action task-card-action--delete" data-action="delete">
+            Delete
+        </button>
+    </div>
+    
     <script type="module">
-        import { Editor } from 'https://esm.sh/@tiptap/core@2.1.13'
+        import { Editor, Node, mergeAttributes } from 'https://esm.sh/@tiptap/core@2.1.13'
         import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2.1.13'
         import Placeholder from 'https://esm.sh/@tiptap/extension-placeholder@2.1.13'
         import Underline from 'https://esm.sh/@tiptap/extension-underline@2.1.13'
@@ -200,6 +266,385 @@
         import Superscript from 'https://esm.sh/@tiptap/extension-superscript@2.1.13'
         import Color from 'https://esm.sh/@tiptap/extension-color@2.1.13'
         import TextStyle from 'https://esm.sh/@tiptap/extension-text-style@2.1.13'
+        
+        // ============================================
+        // Helper: Find ancestor node at a specific depth
+        // ============================================
+        function findAncestor($pos, typeName) {
+            for (let d = $pos.depth; d > 0; d--) {
+                if ($pos.node(d).type.name === typeName) {
+                    return { node: $pos.node(d), depth: d }
+                }
+            }
+            return null
+        }
+        
+        // Helper: Check if a task card is empty (no text in title or description)
+        function isTaskCardEmpty(taskCard) {
+            let empty = true
+            taskCard.forEach(child => {
+                if (child.textContent.length > 0) empty = false
+            })
+            return empty
+        }
+        
+        // Helper: Create a new empty task card node (without description - added on Tab)
+        function createTaskCard(schema, includeDescription = false) {
+            const title = schema.nodes.taskCardTitle.create()
+            if (includeDescription) {
+                const description = schema.nodes.taskCardDescription.create()
+                return schema.nodes.taskCard.create({ checked: false }, [title, description])
+            }
+            return schema.nodes.taskCard.create({ checked: false }, [title])
+        }
+        
+        // ============================================
+        // TaskCardList Node
+        // ============================================
+        const TaskCardList = Node.create({
+            name: 'taskCardList',
+            group: 'block',
+            content: 'taskCard+',
+            
+            parseHTML() {
+                return [{ tag: 'div[data-type="task-card-list"]' }]
+            },
+            
+            renderHTML({ HTMLAttributes }) {
+                return ['div', mergeAttributes(HTMLAttributes, { 
+                    'data-type': 'task-card-list',
+                    'class': 'task-card-list'
+                }), 0]
+            }
+        })
+        
+        // ============================================
+        // TaskCard Node
+        // ============================================
+        const TaskCard = Node.create({
+            name: 'taskCard',
+            group: 'block',
+            content: 'taskCardTitle taskCardDescription?',
+            defining: true,
+            
+            addAttributes() {
+                return {
+                    checked: {
+                        default: false,
+                        parseHTML: el => el.getAttribute('data-checked') === 'true',
+                        renderHTML: attrs => ({ 'data-checked': attrs.checked ? 'true' : 'false' })
+                    }
+                }
+            },
+            
+            parseHTML() {
+                return [{ tag: 'div[data-type="task-card"]' }]
+            },
+            
+            renderHTML({ node, HTMLAttributes }) {
+                return ['div', mergeAttributes(HTMLAttributes, { 
+                    'data-type': 'task-card',
+                    'class': `task-card ${node.attrs.checked ? 'is-completed' : ''}`
+                }), 
+                    ['div', { class: 'task-card-checkbox' }],
+                    ['div', { class: 'task-card-content' }, 0]
+                ]
+            },
+            
+            addCommands() {
+                return {
+                    // Insert a new task card (or list with task card if not in one)
+                    insertTaskCard: () => ({ chain, state, editor }) => {
+                        const { schema, selection: { $from } } = state
+                        const taskCard = createTaskCard(schema)
+                        
+                        // If already in a task card list, insert after current task
+                        if (editor.isActive('taskCardList')) {
+                            const ancestor = findAncestor($from, 'taskCard')
+                            if (ancestor) {
+                                const insertPos = $from.after(ancestor.depth)
+                                // Position: +1 into taskCard, +1 into title
+                                return chain()
+                                    .insertContentAt(insertPos, taskCard.toJSON())
+                                    .setTextSelection(insertPos + 2)
+                                    .run()
+                            }
+                        }
+                        
+                        // Create new list - replace current block entirely
+                        // Use before/after to get positions OUTSIDE the block (not inside)
+                        const blockStart = $from.before($from.depth)
+                        const blockEnd = $from.after($from.depth)
+                        const taskCardList = schema.nodes.taskCardList.create(null, [taskCard])
+                        
+                        // Position: +1 into list, +1 into taskCard, +1 into title
+                        return chain()
+                            .deleteRange({ from: blockStart, to: blockEnd })
+                            .insertContentAt(blockStart, taskCardList.toJSON())
+                            .setTextSelection(blockStart + 3)
+                            .run()
+                    },
+                    
+                    // Toggle the checked state of the current task card
+                    // Uses direct transaction since TipTap lacks ancestor attribute commands
+                    toggleTaskCardChecked: () => ({ tr, state, dispatch }) => {
+                        const ancestor = findAncestor(state.selection.$from, 'taskCard')
+                        if (!ancestor) return false
+                        
+                        if (dispatch) {
+                            const pos = state.selection.$from.before(ancestor.depth)
+                            tr.setNodeMarkup(pos, undefined, {
+                                ...ancestor.node.attrs,
+                                checked: !ancestor.node.attrs.checked
+                            })
+                            dispatch(tr)
+                        }
+                        return true
+                    }
+                }
+            },
+            
+            addKeyboardShortcuts() {
+                return {
+                    // Toggle completion with Cmd/Ctrl+Enter
+                    'Mod-Enter': () => this.editor.commands.toggleTaskCardChecked(),
+                    
+                    // Enter: create new task or exit if empty
+                    'Enter': ({ editor }) => {
+                        if (!editor.isActive('taskCard')) return false
+                        
+                        const { state } = editor
+                        const { $from } = state.selection
+                        const taskAncestor = findAncestor($from, 'taskCard')
+                        if (!taskAncestor) return false
+                        
+                        const { node: taskCard, depth: taskCardDepth } = taskAncestor
+                        
+                        // If task is empty, exit task card formatting
+                        if (isTaskCardEmpty(taskCard)) {
+                            const listAncestor = findAncestor($from, 'taskCardList')
+                            if (!listAncestor) return false
+                            
+                            const { node: list, depth: listDepth } = listAncestor
+                            
+                            if (list.childCount === 1) {
+                                // Only task in list - replace entire list with paragraph
+                                const listStart = $from.before(listDepth)
+                                const listEnd = $from.after(listDepth)
+                                return editor.chain()
+                                    .deleteRange({ from: listStart, to: listEnd })
+                                    .insertContentAt(listStart, { type: 'paragraph' })
+                                    .setTextSelection(listStart + 1)
+                                    .run()
+                            } else {
+                                // Multiple tasks - just delete this one
+                                return editor.chain()
+                                    .deleteRange({ 
+                                        from: $from.before(taskCardDepth), 
+                                        to: $from.after(taskCardDepth) 
+                                    })
+                                    .run()
+                            }
+                        }
+                        
+                        // Not empty - create new task after current
+                        const insertPos = $from.after(taskCardDepth)
+                        return editor.chain()
+                            .insertContentAt(insertPos, createTaskCard(state.schema).toJSON())
+                            .setTextSelection(insertPos + 2) // +1 taskCard, +1 title
+                            .run()
+                    },
+                    
+                    // Tab: move from title to description (create if doesn't exist)
+                    'Tab': ({ editor }) => {
+                        if (!editor.isActive('taskCard')) return false
+                        
+                        const { state } = editor
+                        const { $from } = state.selection
+                        const titleAncestor = findAncestor($from, 'taskCardTitle')
+                        if (!titleAncestor) return false
+                        
+                        const taskCardDepth = titleAncestor.depth - 1
+                        const taskCard = $from.node(taskCardDepth)
+                        const taskCardStart = $from.before(taskCardDepth)
+                        
+                        // Check if description exists
+                        let hasDescription = false
+                        let descPos = null
+                        let offset = 1
+                        taskCard.forEach(child => {
+                            if (child.type.name === 'taskCardTitle') {
+                                offset += child.nodeSize
+                            } else if (child.type.name === 'taskCardDescription') {
+                                hasDescription = true
+                                descPos = taskCardStart + offset + 1
+                            }
+                        })
+                        
+                        if (hasDescription && descPos) {
+                            // Move to existing description
+                            return editor.commands.setTextSelection(descPos)
+                        }
+                        
+                        // Create new description at end of taskCard
+                        const insertPos = $from.after(taskCardDepth) - 1 // Before taskCard closes
+                        const newDesc = state.schema.nodes.taskCardDescription.create()
+                        
+                        return editor.chain()
+                            .insertContentAt(insertPos, newDesc.toJSON())
+                            .setTextSelection(insertPos + 1) // Inside new description
+                            .run()
+                    },
+                    
+                    // Shift+Tab: move from description to title
+                    'Shift-Tab': ({ editor }) => {
+                        if (!editor.isActive('taskCard')) return false
+                        
+                        const { $from } = editor.state.selection
+                        const descAncestor = findAncestor($from, 'taskCardDescription')
+                        if (!descAncestor) return false
+                        
+                        const taskCardStart = $from.before(descAncestor.depth - 1)
+                        // Title position: +1 (into taskCard), +1 (into title)
+                        return editor.commands.setTextSelection(taskCardStart + 2)
+                    },
+                    
+                    // Backspace at start of empty title: exit task formatting
+                    'Backspace': ({ editor }) => {
+                        if (!editor.isActive('taskCard')) return false
+                        
+                        const { selection, selection: { $from } } = editor.state
+                        
+                        // Only handle empty selection at start of content
+                        if (!selection.empty || $from.parentOffset !== 0) return false
+                        
+                        const titleAncestor = findAncestor($from, 'taskCardTitle')
+                        if (!titleAncestor) return false
+                        
+                        const taskCardDepth = titleAncestor.depth - 1
+                        const taskCard = $from.node(taskCardDepth)
+                        
+                        // Only handle if task is empty
+                        if (!isTaskCardEmpty(taskCard)) return false
+                        
+                        const listAncestor = findAncestor($from, 'taskCardList')
+                        if (!listAncestor) return false
+                        
+                        const { node: list, depth: listDepth } = listAncestor
+                        
+                        if (list.childCount === 1) {
+                            // Only task - replace list with paragraph
+                            const listStart = $from.before(listDepth)
+                            return editor.chain()
+                                .deleteRange({ from: listStart, to: $from.after(listDepth) })
+                                .insertContentAt(listStart, { type: 'paragraph' })
+                                .setTextSelection(listStart + 1)
+                                .run()
+                        } else {
+                            // Delete just this task
+                            return editor.chain()
+                                .deleteRange({ 
+                                    from: $from.before(taskCardDepth), 
+                                    to: $from.after(taskCardDepth) 
+                                })
+                                .run()
+                        }
+                    }
+                }
+            },
+            
+            // Custom node view for interactive checkbox
+            addNodeView() {
+                return ({ node, getPos, editor }) => {
+                    const dom = document.createElement('div')
+                    dom.className = `task-card ${node.attrs.checked ? 'is-completed' : ''}`
+                    dom.setAttribute('data-type', 'task-card')
+                    
+                    // Checkbox
+                    const checkbox = document.createElement('div')
+                    checkbox.className = 'task-card-checkbox'
+                    checkbox.setAttribute('contenteditable', 'false')
+                    
+                    checkbox.addEventListener('mousedown', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        
+                        const pos = getPos()
+                        if (typeof pos === 'number') {
+                            const currentNode = editor.state.doc.nodeAt(pos)
+                            if (currentNode && currentNode.type.name === 'taskCard') {
+                                editor.view.dispatch(
+                                    editor.state.tr.setNodeMarkup(pos, undefined, {
+                                        ...currentNode.attrs,
+                                        checked: !currentNode.attrs.checked
+                                    })
+                                )
+                            }
+                        }
+                    })
+                    
+                    // Content area (managed by TipTap)
+                    const content = document.createElement('div')
+                    content.className = 'task-card-content'
+                    
+                    dom.appendChild(checkbox)
+                    dom.appendChild(content)
+                    
+                    return {
+                        dom,
+                        contentDOM: content,
+                        update: (updatedNode) => {
+                            if (updatedNode.type.name !== 'taskCard') return false
+                            dom.className = `task-card ${updatedNode.attrs.checked ? 'is-completed' : ''}`
+                            return true
+                        }
+                    }
+                }
+            }
+        })
+        
+        // TaskCardTitle
+        const TaskCardTitle = Node.create({
+            name: 'taskCardTitle',
+            group: 'block',
+            content: 'inline*',
+            defining: true,
+            
+            parseHTML() {
+                return [{ tag: 'div[data-type="task-card-title"]' }]
+            },
+            
+            renderHTML({ HTMLAttributes }) {
+                return ['div', mergeAttributes(HTMLAttributes, { 
+                    'data-type': 'task-card-title',
+                    'class': 'task-card-title',
+                    'data-placeholder': 'What needs to be done?'
+                }), 0]
+            }
+        })
+        
+        // TaskCardDescription
+        const TaskCardDescription = Node.create({
+            name: 'taskCardDescription',
+            group: 'block',
+            content: 'inline*',
+            
+            parseHTML() {
+                return [{ tag: 'div[data-type="task-card-description"]' }]
+            },
+            
+            renderHTML({ HTMLAttributes }) {
+                return ['div', mergeAttributes(HTMLAttributes, { 
+                    'data-type': 'task-card-description',
+                    'class': 'task-card-description',
+                    'data-placeholder': 'Press Tab for description'
+                }), 0]
+            }
+        })
+        
+        // ============================================
+        // Editor Setup
+        // ============================================
         
         function sendToSwift(msg) {
             if (window.webkit?.messageHandlers?.tiptap) {
@@ -221,6 +666,7 @@
                 isBulletList: e.isActive('bulletList'),
                 isOrderedList: e.isActive('orderedList'),
                 isTaskList: e.isActive('taskList'),
+                isTaskCard: e.isActive('taskCard'),
                 isHighlight: e.isActive('highlight'),
                 isSubscript: e.isActive('subscript'),
                 isSuperscript: e.isActive('superscript'),
@@ -237,7 +683,95 @@
             };
         }
         
+        // Track previous task card to clean up empty descriptions when leaving
+        let previousTaskCardPos = null;
+        function cleanupEmptyDescriptions(editor) {
+            const { state } = editor;
+            const { doc, schema } = state;
+            
+            // Find all task cards with empty descriptions and remove them
+            const changes = [];
+            doc.descendants((node, pos) => {
+                if (node.type.name === 'taskCard') {
+                    node.forEach((child, offset) => {
+                        if (child.type.name === 'taskCardDescription' && child.textContent === '') {
+                            // Calculate absolute position of description
+                            const descStart = pos + 1 + offset;
+                            const descEnd = descStart + child.nodeSize;
+                            changes.push({ from: descStart, to: descEnd });
+                        }
+                    });
+                }
+            });
+            
+            // Apply deletions in reverse order to preserve positions
+            if (changes.length > 0) {
+                let tr = state.tr;
+                changes.reverse().forEach(({ from, to }) => {
+                    tr = tr.delete(from, to);
+                });
+                editor.view.dispatch(tr);
+            }
+        }
+        
+        function onSelectionChange(editor) {
+            const { state } = editor;
+            const { $from } = state.selection;
+            
+            // Find current task card position using ProseMirror state
+            let currentTaskCardPos = null;
+            for (let d = $from.depth; d > 0; d--) {
+                if ($from.node(d).type.name === 'taskCard') {
+                    currentTaskCardPos = $from.before(d);
+                    break;
+                }
+            }
+            
+            // Position and show/hide floating action bar
+            const actionBar = document.getElementById('task-action-bar');
+            if (actionBar) {
+                if (currentTaskCardPos !== null) {
+                    // Find the DOM element for the focused task card
+                    const sel = window.getSelection();
+                    if (sel && sel.anchorNode) {
+                        // Use numeric constant (1) instead of Node.ELEMENT_NODE to avoid conflict with TipTap's Node import
+                        const focusedCard = sel.anchorNode.nodeType === 1 
+                            ? sel.anchorNode.closest('.task-card')
+                            : sel.anchorNode.parentElement?.closest('.task-card');
+                        if (focusedCard) {
+                            // Position using fixed positioning (viewport-relative)
+                            // getBoundingClientRect() returns viewport coordinates, which matches position: fixed
+                            const cardRect = focusedCard.getBoundingClientRect();
+                            
+                            actionBar.style.top = (cardRect.bottom - 26) + 'px';
+                            actionBar.style.right = (window.innerWidth - cardRect.right + 10) + 'px';
+                            actionBar.classList.add('visible');
+                            
+                            // Store the current task card position for button actions
+                            actionBar.dataset.taskCardPos = currentTaskCardPos;
+                        } else {
+                            actionBar.classList.remove('visible');
+                        }
+                    } else {
+                        actionBar.classList.remove('visible');
+                    }
+                } else {
+                    actionBar.classList.remove('visible');
+                }
+            }
+            
+            // If we left a task card, clean up its empty description
+            if (previousTaskCardPos !== null && previousTaskCardPos !== currentTaskCardPos) {
+                // Delay cleanup to avoid interfering with current operation
+                setTimeout(() => cleanupEmptyDescriptions(editor), 10);
+            }
+            
+            previousTaskCardPos = currentTaskCardPos;
+        }
+        
         try {
+            sendToSwift({ type: 'debug', message: 'Starting editor initialization...' });
+            
             const editor = new Editor({
                 element: document.getElementById('editor'),
                 extensions: [
@@ -245,43 +779,41 @@
                         heading: { levels: [1, 2, 3] }
                     }),
                     Placeholder.configure({ 
-                        placeholder: 'Start writing...'
+                        placeholder: ({ node }) => {
+                            if (node.type.name === 'taskCardTitle') return 'What needs to be done?'
+                            if (node.type.name === 'taskCardDescription') return 'Add notes...'
+                            return 'Start writing...'
+                        },
+                        includeChildren: true,
+                        showOnlyCurrent: false
                     }),
                     Underline,
                     Link.configure({
                         openOnClick: false,
-                        HTMLAttributes: {
-                            class: 'link'
-                        }
+                        HTMLAttributes: { class: 'link' }
                     }),
                     TaskList,
-                    TaskItem.configure({ 
-                        nested: true 
-                    }),
+                    TaskItem.configure({ nested: true }),
+                    TaskCardList,
+                    TaskCard,
+                    TaskCardTitle,
+                    TaskCardDescription,
                     Image.configure({
-                        HTMLAttributes: {
-                            class: 'image'
-                        }
+                        HTMLAttributes: { class: 'image' }
                     }),
-                    Table.configure({
-                        resizable: true
-                    }),
+                    Table.configure({ resizable: true }),
                     TableRow,
                     TableHeader,
                     TableCell,
-                    Highlight.configure({
-                        multicolor: false
-                    }),
-                    TextAlign.configure({
-                        types: ['heading', 'paragraph']
-                    }),
+                    Highlight.configure({ multicolor: false }),
+                    TextAlign.configure({ types: ['heading', 'paragraph'] }),
                     Subscript,
                     Superscript,
                     TextStyle,
                     Color
                 ],
                 content: '<p></p>',
-                onUpdate: () => {
+                onUpdate: ({ editor }) => {
                     sendToSwift({
                         type: 'contentChange',
                         html: editor.getHTML(),
@@ -289,23 +821,32 @@
                         text: editor.getText()
                     });
                 },
-                onSelectionUpdate: () => {
+                onSelectionUpdate: ({ editor }) => {
                     sendToSwift({ type: 'selectionChange', state: getState() });
+                    onSelectionChange(editor);
                 }
             });
             
             window.editor = editor;
             
-            // Editor bridge for Swift commands
             window.editorBridge = {
-                // Content
-                setContent: (html) => editor.commands.setContent(html || '<p></p>'),
-                setContentJSON: (json) => { if (json) editor.commands.setContent(json); },
+                setContent: (html) => {
+                    editor.commands.setContent(html || '<p></p>');
+                },
+                setContentJSON: (jsonStr) => { 
+                    if (jsonStr) {
+                        try {
+                            const json = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+                            editor.commands.setContent(json);
+                        } catch (e) {
+                            console.error('Failed to parse JSON content:', e);
+                        }
+                    }
+                },
                 getContent: () => editor.getHTML(),
                 getContentJSON: () => JSON.stringify(editor.getJSON()),
                 getText: () => editor.getText(),
                 
-                // Text formatting
                 toggleBold: () => editor.chain().focus().toggleBold().run(),
                 toggleItalic: () => editor.chain().focus().toggleItalic().run(),
                 toggleUnderline: () => editor.chain().focus().toggleUnderline().run(),
@@ -315,7 +856,6 @@
                 toggleSubscript: () => editor.chain().focus().toggleSubscript().run(),
                 toggleSuperscript: () => editor.chain().focus().toggleSuperscript().run(),
                 
-                // Headings
                 setHeading: (level) => {
                     if (level === 0) editor.chain().focus().setParagraph().run();
                     else editor.chain().focus().toggleHeading({ level }).run();
@@ -324,32 +864,30 @@
                 toggleHeading2: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
                 toggleHeading3: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
                 
-                // Lists
                 toggleBulletList: () => editor.chain().focus().toggleBulletList().run(),
                 toggleOrderedList: () => editor.chain().focus().toggleOrderedList().run(),
                 toggleTaskList: () => editor.chain().focus().toggleTaskList().run(),
                 
-                // Blocks
+                toggleTaskCard: () => editor.commands.insertTaskCard(),
+                insertTaskCard: () => editor.commands.insertTaskCard(),
+                toggleTaskCardChecked: () => editor.commands.toggleTaskCardChecked(),
+                
                 toggleBlockquote: () => editor.chain().focus().toggleBlockquote().run(),
                 toggleCodeBlock: () => editor.chain().focus().toggleCodeBlock().run(),
                 setHorizontalRule: () => editor.chain().focus().setHorizontalRule().run(),
                 
-                // Links
                 setLink: (url) => {
                     if (url) editor.chain().focus().setLink({ href: url }).run();
                     else editor.chain().focus().unsetLink().run();
                 },
                 unsetLink: () => editor.chain().focus().unsetLink().run(),
                 
-                // Images
                 insertImage: (src, alt) => {
                     if (src) editor.chain().focus().setImage({ src, alt: alt || '' }).run();
                 },
                 
-                // Tables
                 insertTable: () => editor.chain().focus()
-                    .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                    .run(),
+                    .insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
                 deleteTable: () => editor.chain().focus().deleteTable().run(),
                 addColumnBefore: () => editor.chain().focus().addColumnBefore().run(),
                 addColumnAfter: () => editor.chain().focus().addColumnAfter().run(),
@@ -361,25 +899,16 @@
                 mergeCells: () => editor.chain().focus().mergeCells().run(),
                 splitCell: () => editor.chain().focus().splitCell().run(),
                 
-                // Text alignment
                 setTextAlign: (align) => editor.chain().focus().setTextAlign(align).run(),
-                
-                // Text color
                 setColor: (color) => editor.chain().focus().setColor(color).run(),
                 unsetColor: () => editor.chain().focus().unsetColor().run(),
                 
-                // History
                 undo: () => editor.chain().focus().undo().run(),
                 redo: () => editor.chain().focus().redo().run(),
                 
-                // Focus
                 focus: () => editor.commands.focus(),
                 blur: () => editor.commands.blur(),
-                
-                // State
                 getState: () => JSON.stringify(getState()),
-                
-                // Theme
                 setThemeCSS: (css) => {
                     const el = document.getElementById('theme-styles');
                     if (el) el.textContent = css;
@@ -388,6 +917,76 @@
             
             editor.commands.focus();
             sendToSwift({ type: 'ready' });
+            sendToSwift({ type: 'debug', message: 'Editor initialized successfully!' });
+            
+            // Update action bar position on scroll (required for position: fixed)
+            const editorElement = document.getElementById('editor');
+            if (editorElement) {
+                editorElement.addEventListener('scroll', () => {
+                    const actionBar = document.getElementById('task-action-bar');
+                    if (actionBar && actionBar.classList.contains('visible')) {
+                        onSelectionChange(editor);
+                    }
+                }, { passive: true });
+            }
+            
+            // Set up floating action bar click handlers
+            const actionBar = document.getElementById('task-action-bar');
+            if (actionBar) {
+                actionBar.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const action = e.target.closest('[data-action]')?.dataset.action;
+                    if (!action) return;
+                    
+                    const taskCardPos = parseInt(actionBar.dataset.taskCardPos, 10);
+                    if (isNaN(taskCardPos)) return;
+                    
+                    if (action === 'new-task') {
+                        editor.commands.insertTaskCard();
+                    } else if (action === 'description') {
+                        // Focus into the task card title first
+                        editor.commands.setTextSelection(taskCardPos + 2);
+                        setTimeout(() => {
+                            const { state } = editor;
+                            const { $from } = state.selection;
+                            const taskCard = $from.node($from.depth - 1);
+                            const taskCardStart = $from.before($from.depth - 1);
+                            
+                            let hasDescription = false;
+                            let descPos = null;
+                            let offset = 1;
+                            if (taskCard) {
+                                taskCard.forEach(child => {
+                                    if (child.type.name === 'taskCardTitle') {
+                                        offset += child.nodeSize;
+                                    } else if (child.type.name === 'taskCardDescription') {
+                                        hasDescription = true;
+                                        descPos = taskCardStart + offset + 1;
+                                    }
+                                });
+                            }
+                            
+                            if (hasDescription && descPos) {
+                                editor.commands.setTextSelection(descPos);
+                            } else {
+                                const insertPos = $from.after($from.depth - 1) - 1;
+                                const newDesc = state.schema.nodes.taskCardDescription.create();
+                                editor.chain()
+                                    .insertContentAt(insertPos, newDesc.toJSON())
+                                    .setTextSelection(insertPos + 1)
+                                    .run();
+                            }
+                        }, 10);
+                    } else if (action === 'delete') {
+                        const currentNode = editor.state.doc.nodeAt(taskCardPos);
+                        if (currentNode) {
+                            editor.chain().deleteRange({ from: taskCardPos, to: taskCardPos + currentNode.nodeSize }).run();
+                        }
+                    }
+                });
+            }
             
         } catch (err) {
             sendToSwift({ type: 'debug', message: 'ERROR: ' + err.message });

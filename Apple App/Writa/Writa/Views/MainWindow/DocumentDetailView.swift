@@ -13,30 +13,26 @@ struct DocumentDetailView: View {
     @Bindable var document: Document
     @Environment(\.themeManager) private var themeManager
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.autosaveManager) private var autosaveManager
     
-    @State private var isEditing = false
     @State private var webView: WKWebView?
     @State private var editorState = EditorState()
     @State private var wordCount: Int = 0
+    @State private var isEditorReady = false
+    @State private var currentDocumentId: UUID?
     
     var body: some View {
-        VStack(spacing: 0) {
-            if isEditing {
-                TiptapEditorView(
-                    document: document,
-                    webView: $webView,
-                    editorState: $editorState,
-                    wordCount: $wordCount,
-                    themeCSS: themeManager.editorCSS(for: colorScheme)
-                )
-            } else {
-                ReadModeView(document: document) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isEditing = true
-                    }
-                }
-            }
-        }
+        TiptapEditorView(
+            document: document,
+            webView: $webView,
+            editorState: $editorState,
+            wordCount: $wordCount,
+            themeCSS: themeManager.editorCSS(for: colorScheme),
+            onShowImagePicker: showImagePicker,
+            onShowLinkDialog: showLinkDialog,
+            onShowColorPicker: showColorPicker,
+            isEditorReady: $isEditorReady
+        )
         .navigationTitle(document.displayTitle)
         .navigationSubtitle(document.formattedDate)
         .toolbar {
@@ -50,7 +46,80 @@ struct DocumentDetailView: View {
         .background(themeManager.tokens.colors.editorBackground)
         .onAppear {
             setupKeyboardShortcuts()
+            currentDocumentId = document.id
         }
+        .onChange(of: document.id) { oldValue, newValue in
+            // Document changed - swap content in existing WebView
+            handleDocumentChange(from: oldValue, to: newValue)
+        }
+        .onChange(of: colorScheme) { _, _ in
+            // Re-apply theme when color scheme changes
+            applyThemeCSS()
+        }
+        .onChange(of: themeManager.editorFontSize) { _, _ in applyThemeCSS() }
+        .onChange(of: themeManager.editorFontFamily) { _, _ in applyThemeCSS() }
+        .onChange(of: themeManager.editorLineHeight) { _, _ in applyThemeCSS() }
+        .onChange(of: themeManager.editorParagraphSpacing) { _, _ in applyThemeCSS() }
+    }
+    
+    // MARK: - Theme Application
+    
+    private func applyThemeCSS() {
+        guard let webView = webView else { return }
+        let css = themeManager.editorCSS(for: colorScheme)
+        let escapedCSS = css
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+            .replacingOccurrences(of: "\n", with: "\\n")
+        webView.evaluateJavaScript("editorBridge.setThemeCSS('\(escapedCSS)')")
+    }
+    
+    // MARK: - Document Change Handling
+    
+    private func handleDocumentChange(from oldId: UUID, to newId: UUID) {
+        guard oldId != newId else { return }
+        
+        // Save current document immediately
+        autosaveManager.stopEditing()
+        
+        // Reset editor state for new document
+        editorState = EditorState()
+        wordCount = document.wordCount
+        currentDocumentId = newId
+        
+        // Start editing new document
+        autosaveManager.startEditing(document)
+        
+        // Load new content into existing WebView (if ready)
+        if isEditorReady, let webView = webView {
+            loadContent(into: webView)
+        }
+    }
+    
+    private func loadContent(into webView: WKWebView) {
+        // Load JSON content if available
+        if let contentData = document.content,
+           let jsonString = String(data: contentData, encoding: .utf8),
+           !jsonString.isEmpty && jsonString != "{}" {
+            let escapedJSON = jsonString
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+                .replacingOccurrences(of: "\n", with: "\\n")
+            webView.evaluateJavaScript("editorBridge.setContentJSON('\(escapedJSON)')")
+        } else if !document.plainText.isEmpty {
+            // Fallback to plain text
+            let escapedText = document.plainText
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+                .replacingOccurrences(of: "\n", with: "</p><p>")
+            webView.evaluateJavaScript("editorBridge.setContent('<p>\(escapedText)</p>')")
+        } else {
+            // Empty document
+            webView.evaluateJavaScript("editorBridge.setContent('<p></p>')")
+        }
+        
+        // Focus the editor
+        webView.evaluateJavaScript("editorBridge.focus()")
     }
     
     // MARK: - Share Menu
@@ -168,7 +237,7 @@ struct DocumentDetailView: View {
         // Register keyboard shortcuts via NSEvent monitor
         // These will forward to the TipTap editor
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard isEditing, let webView = webView else { return event }
+            guard let webView = webView else { return event }
             
             let flags = event.modifierFlags
             let isCmd = flags.contains(.command)
@@ -199,6 +268,9 @@ struct DocumentDetailView: View {
             case ("7", true, false): webView.toggleOrderedList(); return nil
             case ("8", true, false): webView.toggleBulletList(); return nil
             case ("9", true, false): webView.toggleTaskList(); return nil
+            
+            // Task Cards
+            case ("t", true, false): webView.insertTaskCard(); return nil
             
             // Blocks
             case ("b", true, false): webView.toggleBlockquote(); return nil
@@ -273,6 +345,38 @@ struct ReadModeView: View {
     }
 }
 
+// MARK: - Editor Skeleton View (Loading State)
+
+struct EditorSkeletonView: View {
+    let document: Document
+    @Environment(\.themeManager) private var themeManager
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                // Show actual content preview if available
+                if !document.plainText.isEmpty {
+                    Text(document.plainText)
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundStyle(themeManager.tokens.colors.textPrimary)
+                        .lineSpacing(6)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    // Placeholder for empty documents
+                    Text("Start writing...")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.tertiary)
+                }
+                
+                Spacer(minLength: 100)
+            }
+            .padding(32)
+            .frame(maxWidth: 720, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
 // MARK: - TipTap Editor View
 
 struct TiptapEditorView: View {
@@ -281,68 +385,49 @@ struct TiptapEditorView: View {
     @Binding var editorState: EditorState
     @Binding var wordCount: Int
     var themeCSS: String
+    var onShowImagePicker: () -> Void
+    var onShowLinkDialog: () -> Void
+    var onShowColorPicker: () -> Void
+    @Binding var isEditorReady: Bool
     
     @Environment(\.themeManager) private var themeManager
+    @Environment(\.autosaveManager) private var autosaveManager
     
     @State private var htmlContent: String = ""
     @State private var jsonContent: String = ""
-    @State private var isEditorReady: Bool = false
+    
+    // Height for the formatting toolbar area (content will scroll behind this)
+    private let toolbarAreaHeight: CGFloat = 52
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Liquid Glass toolbar - connected to editor
-            LiquidGlassEditorToolbar(
-                webView: $webView,
-                editorState: editorState,
-                wordCount: wordCount,
-                onShowImagePicker: { showImagePicker() },
-                onShowLinkDialog: { showLinkDialog() },
-                onShowColorPicker: { showColorPicker() }
-            )
-            
-            Divider()
-            
-            // TipTap WebView Editor
+        // ZStack overlay approach - content scrolls behind the toolbar
+        ZStack(alignment: .top) {
+            // Main editor content - extends into safe area for scroll-behind effect
             ZStack {
-                // Background
-                themeManager.tokens.colors.editorBackground
-                
-                // Loading indicator (shown until editor is ready)
+                // Skeleton shown while loading
                 if !isEditorReady {
-                    VStack(spacing: 12) {
-                        ProgressView()
-                        Text("Loading editor...")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    EditorSkeletonView(document: document)
+                        .transition(.opacity)
                 }
                 
-                // WebView
+                // WebView always rendered (needs to load to become ready)
                 TiptapWebView(
                     htmlContent: $htmlContent,
                     jsonContent: $jsonContent,
                     onContentChange: { html, json, text in
-                        // Update document
-                        document.plainText = text
-                        if let jsonData = json.data(using: .utf8) {
-                            document.content = jsonData
-                        }
-                        // Update word count
                         wordCount = text.isEmpty ? 0 : text.split(separator: " ").count
-                        document.wordCount = wordCount
-                        document.updatedAt = Date()
+                        autosaveManager.contentDidChange(
+                            content: json.data(using: .utf8),
+                            plainText: text,
+                            wordCount: wordCount
+                        )
                     },
                     onReady: {
                         print("📝 TipTap editor ready!")
-                        isEditorReady = true
-                        
-                        // Load existing content when editor is ready
-                        if let contentData = document.content,
-                           let json = String(data: contentData, encoding: .utf8) {
-                            jsonContent = json
-                        } else if !document.plainText.isEmpty {
-                            htmlContent = "<p>\(document.plainText)</p>"
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            isEditorReady = true
                         }
+                        loadDocumentContent()
                     },
                     onSelectionChange: { state in
                         editorState = state
@@ -353,6 +438,66 @@ struct TiptapEditorView: View {
                 .opacity(isEditorReady ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // Formatting toolbar - respects safe area, sits below window toolbar
+            VStack(spacing: 0) {
+                LiquidGlassEditorToolbar(
+                    webView: $webView,
+                    editorState: editorState,
+                    wordCount: wordCount,
+                    onShowImagePicker: onShowImagePicker,
+                    onShowLinkDialog: onShowLinkDialog,
+                    onShowColorPicker: onShowColorPicker
+                )
+                Spacer()
+            }
+        }
+        .onAppear {
+            autosaveManager.startEditing(document)
+        }
+        .onDisappear {
+            autosaveManager.stopEditing()
+        }
+    }
+    
+    // MARK: - Content Loading
+    
+    private func loadDocumentContent() {
+        guard let webView = webView else {
+            print("⚠️ WebView not available for content loading")
+            return
+        }
+        
+        // Try to load JSON content first (preferred format)
+        if let contentData = document.content,
+           let jsonString = String(data: contentData, encoding: .utf8),
+           !jsonString.isEmpty && jsonString != "{}" {
+            print("📄 Loading JSON content for document: \(document.displayTitle)")
+            let escapedJSON = jsonString
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+                .replacingOccurrences(of: "\n", with: "\\n")
+            webView.evaluateJavaScript("editorBridge.setContentJSON('\(escapedJSON)')") { _, error in
+                if let error = error {
+                    print("❌ Error setting JSON content: \(error)")
+                } else {
+                    print("✅ JSON content loaded successfully")
+                }
+            }
+        } else if !document.plainText.isEmpty {
+            // Fallback to plain text if no JSON content
+            print("📄 Loading plain text content for document: \(document.displayTitle)")
+            let escapedText = document.plainText
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+                .replacingOccurrences(of: "\n", with: "</p><p>")
+            webView.evaluateJavaScript("editorBridge.setContent('<p>\(escapedText)</p>')") { _, error in
+                if let error = error {
+                    print("❌ Error setting plain text content: \(error)")
+                }
+            }
+        } else {
+            print("📄 No existing content for document: \(document.displayTitle)")
         }
     }
 }
@@ -374,6 +519,7 @@ struct LiquidGlassEditorToolbar: View {
     private let mergeOffset: CGFloat = -10.0
     private let buttonSize: CGFloat = 32.0
     private let iconSize: CGFloat = 14.0
+    private let textButtonPadding: CGFloat = 12.0
     
     var body: some View {
         GlassEffectContainer(spacing: glassSpacing) {
@@ -395,11 +541,6 @@ struct LiquidGlassEditorToolbar: View {
                 }
                 
                 Spacer()
-                
-                // Word count
-                Text("\(wordCount) words")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -428,15 +569,18 @@ struct LiquidGlassEditorToolbar: View {
             executeToolAction(tool)
         } label: {
             if let label = tool.customLabel {
+                // Text label button (Title, Heading, Body)
                 Text(label)
-                    .font(.system(size: iconSize, weight: .bold, design: .rounded))
-                    .frame(width: buttonSize, height: buttonSize)
-                    .foregroundStyle(isActive ? .primary : .secondary)
+                    .font(.system(size: 12, weight: isActive ? .semibold : .medium))
+                    .foregroundStyle(isActive ? Color.accentColor : .primary)
+                    .padding(.horizontal, textButtonPadding)
+                    .frame(height: buttonSize)
             } else {
+                // Icon button
                 Image(systemName: tool.icon)
                     .font(.system(size: iconSize, weight: .medium))
                     .frame(width: buttonSize, height: buttonSize)
-                    .foregroundStyle(isActive ? .primary : .secondary)
+                    .foregroundStyle(isActive ? Color.accentColor : .primary)
             }
         }
         .buttonStyle(.borderless)
@@ -466,7 +610,7 @@ struct LiquidGlassEditorToolbar: View {
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: iconSize, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
             }
             .menuIndicator(.hidden)
             .buttonStyle(.borderless)
@@ -497,6 +641,7 @@ struct LiquidGlassEditorToolbar: View {
         case .bulletList: return editorState.isBulletList
         case .numberedList: return editorState.isOrderedList
         case .taskList: return editorState.isTaskList
+        case .taskCard: return editorState.isTaskCard
         case .quote: return editorState.isBlockquote
         case .codeBlock: return editorState.isCodeBlock
         case .link: return editorState.isLink
@@ -546,6 +691,8 @@ struct LiquidGlassEditorToolbar: View {
             webView.toggleOrderedList()
         case .taskList:
             webView.toggleTaskList()
+        case .taskCard:
+            webView.insertTaskCard()
         case .quote:
             webView.toggleBlockquote()
         case .codeBlock:

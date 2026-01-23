@@ -11,11 +11,14 @@ import SwiftData
 struct DocumentListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.themeManager) private var themeManager
+    @Environment(\.documentManager) private var documentManager
     let sidebarSelection: SidebarItemType?
     @Binding var documentSelection: Document?
     
-    @Query private var allDocuments: [Document]
-    @Query private var folders: [Folder]
+    // Query only non-deleted documents
+    @Query(filter: #Predicate<Document> { $0.isDeleted == false }) 
+    private var allDocuments: [Document]
+    @Query private var workspaces: [Workspace]
     
     @State private var searchText = ""
     @State private var sortOrder: DocumentSortOrder = .dateModified
@@ -28,28 +31,30 @@ struct DocumentListView: View {
     }
     
     private var filteredDocuments: [Document] {
-        var docs = allDocuments
+        // allDocuments is already filtered for non-deleted via @Query predicate
+        var docs = Array(allDocuments)
         
         // Filter by sidebar selection
         switch sidebarSelection {
         case .allDocuments:
             break // Show all
         case .inbox:
-            docs = docs.filter { $0.folder == nil }
+            docs = docs.filter { $0.workspace == nil }
         case .favorites:
             docs = docs.filter { $0.isFavorite }
         case .recent:
             docs = docs.filter { $0.lastOpenedAt != nil }
                 .sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
-        case .folder(let id):
-            if let folder = folders.first(where: { $0.id == id }) {
-                docs = folder.documents
+        case .workspace(let id):
+            if let workspace = workspaces.first(where: { $0.id == id }) {
+                // Workspace documents also need to be filtered for non-deleted
+                docs = workspace.documents.filter { !$0.isDeleted }
             }
         case .tag(let name):
             docs = docs.filter { $0.tags.contains(name) }
         case .smartFilter(let type):
             docs = applySmartFilter(type, to: docs)
-        case .openCommunity, .none:
+        case .openCommunity, .trash, .none:
             break
         }
         
@@ -108,9 +113,12 @@ struct DocumentListView: View {
                 sortMenu
             }
             ToolbarItemGroup {
-                Button(action: createNewDocument) {
+                Button {
+                    createNewDocument()
+                } label: {
                     Image(systemName: "square.and.pencil")
                 }
+                .help("New Document")
             }
         }
     }
@@ -118,22 +126,34 @@ struct DocumentListView: View {
     // MARK: - Document List
     
     private var documentList: some View {
-        List(documents, selection: $documentSelection) { document in
-            DocumentRowView(document: document)
-                .tag(document)
-                .listRowBackground(rowBackground(for: document))
-                .contextMenu {
-                    documentContextMenu(for: document)
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(documents) { document in
+                    DocumentRowView(document: document)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(documentSelection?.id == document.id
+                                      ? Color.accentColor.opacity(0.12)
+                                      : Color.clear)
+                        )
+                        .padding(.horizontal, 8)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            documentSelection = document
+                        }
+                        .draggable(SidebarDragItem.document(document.id))
+                        .contextMenu {
+                            documentContextMenu(for: document)
+                        }
                 }
+            }
+            .padding(.vertical, 4)
         }
+        .background(Color(nsColor: .controlBackgroundColor))
     }
     
-    private func rowBackground(for document: Document) -> Color {
-        if documentSelection?.id == document.id {
-            return themeManager.tokens.colors.surfaceSelected.opacity(0.3)
-        }
-        return Color.clear
-    }
     
     // MARK: - Navigation Title
     
@@ -143,8 +163,9 @@ struct DocumentListView: View {
         case .inbox: return "Inbox"
         case .favorites: return "Favorites"
         case .recent: return "Recent"
-        case .folder(let id):
-            return folders.first { $0.id == id }?.name ?? "Folder"
+        case .trash: return "Trash"
+        case .workspace(let id):
+            return workspaces.first { $0.id == id }?.name ?? "Workspace"
         case .tag(let name): return "#\(name)"
         case .smartFilter(let type): return type.rawValue
         case .openCommunity, .none: return "Documents"
@@ -180,6 +201,7 @@ struct DocumentListView: View {
     private func documentContextMenu(for document: Document) -> some View {
         Button {
             document.isFavorite.toggle()
+            documentManager.save(document)
         } label: {
             Label(
                 document.isFavorite ? "Remove from Favorites" : "Add to Favorites",
@@ -189,6 +211,7 @@ struct DocumentListView: View {
         
         Button {
             document.isPinned.toggle()
+            documentManager.save(document)
         } label: {
             Label(
                 document.isPinned ? "Unpin" : "Pin",
@@ -199,25 +222,35 @@ struct DocumentListView: View {
         Divider()
         
         Button(role: .destructive) {
-            modelContext.delete(document)
+            deleteDocument(document)
         } label: {
-            Label("Delete", systemImage: "trash")
+            Label("Move to Trash", systemImage: "trash")
         }
     }
     
     // MARK: - Actions
     
     private func createNewDocument() {
-        let document = Document(title: "Untitled")
-        
-        // Set folder if a folder is selected
-        if case .folder(let id) = sidebarSelection,
-           let folder = folders.first(where: { $0.id == id }) {
-            document.folder = folder
+        // Get workspace if one is selected
+        var workspace: Workspace? = nil
+        if case .workspace(let id) = sidebarSelection {
+            workspace = workspaces.first(where: { $0.id == id })
         }
         
-        modelContext.insert(document)
-        documentSelection = document
+        // Create using document manager
+        if let newDocument = documentManager.create(title: "Untitled", in: workspace) {
+            documentSelection = newDocument
+        }
+    }
+    
+    private func deleteDocument(_ document: Document) {
+        // Clear selection if deleting the selected document
+        if documentSelection?.id == document.id {
+            documentSelection = nil
+        }
+        
+        // Move to trash (soft delete)
+        documentManager.moveToTrash(document)
     }
 }
 
