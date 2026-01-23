@@ -38,8 +38,9 @@ struct DocumentListView: View {
         switch sidebarSelection {
         case .allDocuments:
             break // Show all
-        case .inbox:
-            docs = docs.filter { $0.workspace == nil }
+        case .tasks:
+            // Tasks are handled by TasksView, not here
+            docs = []
         case .favorites:
             docs = docs.filter { $0.isFavorite }
         case .recent:
@@ -160,7 +161,7 @@ struct DocumentListView: View {
     private var navigationTitle: String {
         switch sidebarSelection {
         case .allDocuments: return "All Documents"
-        case .inbox: return "Inbox"
+        case .tasks: return "Tasks"
         case .favorites: return "Favorites"
         case .recent: return "Recent"
         case .trash: return "Trash"

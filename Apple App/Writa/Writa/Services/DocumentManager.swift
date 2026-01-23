@@ -230,4 +230,12 @@ extension EnvironmentValues {
 extension Notification.Name {
     static let createNewDocument = Notification.Name("createNewDocument")
     static let createNewWorkspace = Notification.Name("createNewWorkspace")
+    static let taskToggled = Notification.Name("taskToggled")
+}
+
+/// Info passed with taskToggled notification
+struct TaskToggleInfo {
+    let documentID: UUID
+    let nodeIndex: Int
+    let isCompleted: Bool
 }

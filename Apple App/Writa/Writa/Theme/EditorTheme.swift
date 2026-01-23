@@ -22,7 +22,16 @@ struct EditorTheme: Codable, Identifiable, Equatable {
     var fontFamily: String
     var fontSize: CGFloat
     var lineHeight: CGFloat
-    var paragraphSpacing: CGFloat
+    
+    // Per-style spacing (multiplier of font size)
+    var paragraphSpacingBefore: CGFloat
+    var paragraphSpacingAfter: CGFloat
+    var h1SpacingBefore: CGFloat
+    var h1SpacingAfter: CGFloat
+    var h2SpacingBefore: CGFloat
+    var h2SpacingAfter: CGFloat
+    var h3SpacingBefore: CGFloat
+    var h3SpacingAfter: CGFloat
     
     // Layout
     var contentWidth: CGFloat
@@ -45,8 +54,15 @@ struct EditorTheme: Codable, Identifiable, Equatable {
         isBuiltIn: Bool = false,
         fontFamily: String = ".AppleSystemUIFont",
         fontSize: CGFloat = 16,
-        lineHeight: CGFloat = 1.6,
-        paragraphSpacing: CGFloat = 1.0,
+        lineHeight: CGFloat = 1.4,
+        paragraphSpacingBefore: CGFloat = 0.0,
+        paragraphSpacingAfter: CGFloat = 0.3,
+        h1SpacingBefore: CGFloat = 1.5,
+        h1SpacingAfter: CGFloat = 0.0,
+        h2SpacingBefore: CGFloat = 1.2,
+        h2SpacingAfter: CGFloat = 0.0,
+        h3SpacingBefore: CGFloat = 1.0,
+        h3SpacingAfter: CGFloat = 0.0,
         contentWidth: CGFloat = 720,
         padding: CGFloat = 32,
         accentColorHex: String? = nil,
@@ -61,7 +77,14 @@ struct EditorTheme: Codable, Identifiable, Equatable {
         self.fontFamily = fontFamily
         self.fontSize = fontSize
         self.lineHeight = lineHeight
-        self.paragraphSpacing = paragraphSpacing
+        self.paragraphSpacingBefore = paragraphSpacingBefore
+        self.paragraphSpacingAfter = paragraphSpacingAfter
+        self.h1SpacingBefore = h1SpacingBefore
+        self.h1SpacingAfter = h1SpacingAfter
+        self.h2SpacingBefore = h2SpacingBefore
+        self.h2SpacingAfter = h2SpacingAfter
+        self.h3SpacingBefore = h3SpacingBefore
+        self.h3SpacingAfter = h3SpacingAfter
         self.contentWidth = contentWidth
         self.padding = padding
         self.accentColorHex = accentColorHex
@@ -110,8 +133,15 @@ struct ThemeLibrary {
             isBuiltIn: true,
             fontFamily: ".AppleSystemUIFont",
             fontSize: 16,
-            lineHeight: 1.6,
-            paragraphSpacing: 1.0,
+            lineHeight: 1.4,
+            paragraphSpacingBefore: 0.0,
+            paragraphSpacingAfter: 0.3,
+            h1SpacingBefore: 1.5,
+            h1SpacingAfter: 0.0,
+            h2SpacingBefore: 1.2,
+            h2SpacingAfter: 0.0,
+            h3SpacingBefore: 1.0,
+            h3SpacingAfter: 0.0,
             contentWidth: 720,
             padding: 32,
             author: "Writa"
@@ -126,7 +156,14 @@ struct ThemeLibrary {
             fontFamily: ".AppleSystemUIFont",
             fontSize: 15,
             lineHeight: 1.5,
-            paragraphSpacing: 0.75,
+            paragraphSpacingBefore: 0.0,
+            paragraphSpacingAfter: 0.5,
+            h1SpacingBefore: 1.0,
+            h1SpacingAfter: 0.3,
+            h2SpacingBefore: 0.8,
+            h2SpacingAfter: 0.25,
+            h3SpacingBefore: 0.6,
+            h3SpacingAfter: 0.2,
             contentWidth: 680,
             padding: 24,
             author: "Writa"
@@ -141,7 +178,14 @@ struct ThemeLibrary {
             fontFamily: ".AppleSystemUIFont",
             fontSize: 16,
             lineHeight: 1.8,
-            paragraphSpacing: 1.25,
+            paragraphSpacingBefore: 0.0,
+            paragraphSpacingAfter: 1.0,
+            h1SpacingBefore: 2.0,
+            h1SpacingAfter: 0.6,
+            h2SpacingBefore: 1.5,
+            h2SpacingAfter: 0.5,
+            h3SpacingBefore: 1.2,
+            h3SpacingAfter: 0.4,
             contentWidth: 640,
             padding: 48,
             author: "Writa"
@@ -158,7 +202,14 @@ struct ThemeLibrary {
             fontFamily: "SF Mono",
             fontSize: 15,
             lineHeight: 1.7,
-            paragraphSpacing: 1.5,
+            paragraphSpacingBefore: 0.0,
+            paragraphSpacingAfter: 1.2,
+            h1SpacingBefore: 2.0,
+            h1SpacingAfter: 0.8,
+            h2SpacingBefore: 1.5,
+            h2SpacingAfter: 0.6,
+            h3SpacingBefore: 1.2,
+            h3SpacingAfter: 0.4,
             contentWidth: 640,
             padding: 40,
             author: "Writa"
@@ -173,7 +224,14 @@ struct ThemeLibrary {
             fontFamily: ".AppleSystemUIFont",
             fontSize: 17,
             lineHeight: 1.9,
-            paragraphSpacing: 0.5,  // Indent-style, less paragraph gap
+            paragraphSpacingBefore: 0.0,
+            paragraphSpacingAfter: 0.4,
+            h1SpacingBefore: 2.0,
+            h1SpacingAfter: 0.5,
+            h2SpacingBefore: 1.5,
+            h2SpacingAfter: 0.4,
+            h3SpacingBefore: 1.2,
+            h3SpacingAfter: 0.3,
             contentWidth: 580,
             padding: 64,
             author: "Writa"
@@ -190,7 +248,14 @@ struct ThemeLibrary {
             fontFamily: "New York",
             fontSize: 18,
             lineHeight: 1.8,
-            paragraphSpacing: 1.2,
+            paragraphSpacingBefore: 0.0,
+            paragraphSpacingAfter: 1.0,
+            h1SpacingBefore: 2.0,
+            h1SpacingAfter: 0.6,
+            h2SpacingBefore: 1.5,
+            h2SpacingAfter: 0.5,
+            h3SpacingBefore: 1.2,
+            h3SpacingAfter: 0.4,
             contentWidth: 680,
             padding: 40,
             author: "Writa"
@@ -205,7 +270,14 @@ struct ThemeLibrary {
             fontFamily: "Georgia",
             fontSize: 18,
             lineHeight: 1.75,
-            paragraphSpacing: 1.0,
+            paragraphSpacingBefore: 0.0,
+            paragraphSpacingAfter: 0.8,
+            h1SpacingBefore: 1.8,
+            h1SpacingAfter: 0.5,
+            h2SpacingBefore: 1.4,
+            h2SpacingAfter: 0.4,
+            h3SpacingBefore: 1.0,
+            h3SpacingAfter: 0.3,
             contentWidth: 600,
             padding: 56,
             author: "Writa"
@@ -222,7 +294,14 @@ struct ThemeLibrary {
             fontFamily: ".AppleSystemUIFont",
             fontSize: 15,
             lineHeight: 1.6,
-            paragraphSpacing: 1.0,
+            paragraphSpacingBefore: 0.0,
+            paragraphSpacingAfter: 0.8,
+            h1SpacingBefore: 1.5,
+            h1SpacingAfter: 0.5,
+            h2SpacingBefore: 1.25,
+            h2SpacingAfter: 0.4,
+            h3SpacingBefore: 1.0,
+            h3SpacingAfter: 0.3,
             contentWidth: 800,
             padding: 32,
             author: "Writa"
@@ -237,7 +316,14 @@ struct ThemeLibrary {
             fontFamily: ".AppleSystemUIFont",
             fontSize: 20,
             lineHeight: 1.7,
-            paragraphSpacing: 1.5,
+            paragraphSpacingBefore: 0.0,
+            paragraphSpacingAfter: 1.2,
+            h1SpacingBefore: 2.0,
+            h1SpacingAfter: 0.8,
+            h2SpacingBefore: 1.5,
+            h2SpacingAfter: 0.6,
+            h3SpacingBefore: 1.2,
+            h3SpacingAfter: 0.5,
             contentWidth: 760,
             padding: 48,
             author: "Writa"
@@ -268,7 +354,17 @@ extension ThemeManager {
         editorFontFamily = theme.fontFamily
         editorFontSize = theme.fontSize
         editorLineHeight = theme.lineHeight
-        editorParagraphSpacing = theme.paragraphSpacing
+        
+        // Per-style spacing
+        paragraphSpacingBefore = theme.paragraphSpacingBefore
+        paragraphSpacingAfter = theme.paragraphSpacingAfter
+        h1SpacingBefore = theme.h1SpacingBefore
+        h1SpacingAfter = theme.h1SpacingAfter
+        h2SpacingBefore = theme.h2SpacingBefore
+        h2SpacingAfter = theme.h2SpacingAfter
+        h3SpacingBefore = theme.h3SpacingBefore
+        h3SpacingAfter = theme.h3SpacingAfter
+        
         editorContentWidth = theme.contentWidth
         editorPadding = theme.padding
         
@@ -301,7 +397,14 @@ extension ThemeManager {
             fontFamily: editorFontFamily,
             fontSize: editorFontSize,
             lineHeight: editorLineHeight,
-            paragraphSpacing: editorParagraphSpacing,
+            paragraphSpacingBefore: paragraphSpacingBefore,
+            paragraphSpacingAfter: paragraphSpacingAfter,
+            h1SpacingBefore: h1SpacingBefore,
+            h1SpacingAfter: h1SpacingAfter,
+            h2SpacingBefore: h2SpacingBefore,
+            h2SpacingAfter: h2SpacingAfter,
+            h3SpacingBefore: h3SpacingBefore,
+            h3SpacingAfter: h3SpacingAfter,
             contentWidth: editorContentWidth,
             padding: editorPadding,
             accentColorHex: useSystemAccent ? nil : customAccentColor.toHex()

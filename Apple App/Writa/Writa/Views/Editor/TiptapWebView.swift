@@ -490,6 +490,7 @@ struct EditorState {
     var isTaskList: Bool = false
     var isTaskCard: Bool = false
     var isHighlight: Bool = false
+    var highlightColor: String = "#fef08a" // Default yellow
     var isSubscript: Bool = false
     var isSuperscript: Bool = false
     var headingLevel: Int = 0
@@ -513,6 +514,7 @@ struct EditorState {
         isTaskList = dict["isTaskList"] as? Bool ?? false
         isTaskCard = dict["isTaskCard"] as? Bool ?? false
         isHighlight = dict["isHighlight"] as? Bool ?? false
+        highlightColor = dict["highlightColor"] as? String ?? "#fef08a"
         isSubscript = dict["isSubscript"] as? Bool ?? false
         isSuperscript = dict["isSuperscript"] as? Bool ?? false
         headingLevel = dict["headingLevel"] as? Int ?? 0
@@ -547,6 +549,12 @@ extension WKWebView {
     // Task Cards
     func toggleTaskCard() { evaluateJavaScript("editorBridge.toggleTaskCard()") }
     func insertTaskCard() { evaluateJavaScript("editorBridge.insertTaskCard()") }
+    
+    // Prompt Snippets
+    func insertPromptSnippet() { evaluateJavaScript("editorBridge.insertPromptSnippet()") }
+    
+    // Highlight
+    func setHighlightColor(_ color: String) { evaluateJavaScript("editorBridge.setHighlightColor('\(color)')") }
     
     // Blocks
     func toggleBlockquote() { evaluateJavaScript("editorBridge.toggleBlockquote()") }

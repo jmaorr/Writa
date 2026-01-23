@@ -29,18 +29,21 @@ struct MainContentView: View {
             )
             .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
         } content: {
-            // MARK: - Document List (Column 2)
-            if sidebarSelection == .trash {
-                // Show trash list when trash is selected
-                TrashListView(documentSelection: $documentSelection)
-                    .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 400)
-            } else {
-                DocumentListView(
-                    sidebarSelection: sidebarSelection,
-                    documentSelection: $documentSelection
-                )
-                .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 400)
+            // MARK: - Content (Column 2)
+            Group {
+                switch sidebarSelection {
+                case .trash:
+                    TrashListView(documentSelection: $documentSelection)
+                case .tasks:
+                    TasksView(documentSelection: $documentSelection)
+                default:
+                    DocumentListView(
+                        sidebarSelection: sidebarSelection,
+                        documentSelection: $documentSelection
+                    )
+                }
             }
+            .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 400)
         } detail: {
             // MARK: - Document Detail (Column 3)
             if let document = documentSelection {

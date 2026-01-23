@@ -44,13 +44,22 @@ enum ThemePreset: String, CaseIterable, Identifiable {
 final class ThemeManager {
     // MARK: - Properties
     
+    /// Incremented whenever any editor setting changes - use this to observe all changes at once
+    var editorSettingsVersion: Int = 0
+    
+    /// Flag to prevent applyPreset during initialization
+    private var isLoadingSettings: Bool = false
+    
     var mode: ThemeMode = .system {
         didSet { persistSettings() }
     }
     
     var preset: ThemePreset = .apple {
         didSet {
-            applyPreset()
+            // Only apply preset if not loading settings (to avoid overwriting loaded values)
+            if !isLoadingSettings {
+                applyPreset()
+            }
             persistSettings()
         }
     }
@@ -73,17 +82,51 @@ final class ThemeManager {
         }
     }
     
-    var editorLineHeight: CGFloat = 1.6 {
+    var editorLineHeight: CGFloat = 1.4 {
         didSet {
             updateEditorTypography()
             persistSettings()
         }
     }
     
-    var editorParagraphSpacing: CGFloat = 1.0 {
+    // Per-style spacing (multiplier of font size)
+    var paragraphSpacingBefore: CGFloat = 0.0 {
+        didSet { persistSettings() }
+    }
+    var paragraphSpacingAfter: CGFloat = 0.3 {
         didSet { persistSettings() }
     }
     
+    var h1SpacingBefore: CGFloat = 1.5 {
+        didSet { persistSettings() }
+    }
+    var h1SpacingAfter: CGFloat = 0.0 {
+        didSet { persistSettings() }
+    }
+    
+    var h2SpacingBefore: CGFloat = 1.2 {
+        didSet { persistSettings() }
+    }
+    var h2SpacingAfter: CGFloat = 0.0 {
+        didSet { persistSettings() }
+    }
+    
+    var h3SpacingBefore: CGFloat = 1.0 {
+        didSet { persistSettings() }
+    }
+    var h3SpacingAfter: CGFloat = 0.0 {
+        didSet { persistSettings() }
+    }
+    
+    // Background colors - initialize to explicit defaults (not system colors)
+    var editorBackgroundColorLight: Color = Color(hex: "#ffffff") ?? .white {
+        didSet { persistSettings() }
+    }
+    var editorBackgroundColorDark: Color = Color(hex: "#1e1e1e") ?? Color(white: 0.12) {
+        didSet { persistSettings() }
+    }
+    
+    // Layout
     var editorContentWidth: CGFloat = 720 {
         didSet { persistSettings() }
     }
@@ -109,7 +152,14 @@ final class ThemeManager {
     // MARK: - Initialization
     
     init() {
+        isLoadingSettings = true
         loadSettings()
+        isLoadingSettings = false
+        
+        // If no preset was saved, apply default preset
+        if UserDefaults.standard.string(forKey: "theme.preset") == nil {
+            applyPreset()
+        }
     }
     
     // MARK: - Preset Application
@@ -120,8 +170,15 @@ final class ThemeManager {
             tokens = .default
             editorFontFamily = ".AppleSystemUIFont"
             editorFontSize = 16
-            editorLineHeight = 1.6
-            editorParagraphSpacing = 1.0
+            editorLineHeight = 1.4
+            paragraphSpacingBefore = 0.0
+            paragraphSpacingAfter = 0.3
+            h1SpacingBefore = 1.5
+            h1SpacingAfter = 0.0
+            h2SpacingBefore = 1.2
+            h2SpacingAfter = 0.0
+            h3SpacingBefore = 1.0
+            h3SpacingAfter = 0.0
             editorContentWidth = 720
             editorPadding = 32
             
@@ -129,8 +186,15 @@ final class ThemeManager {
             tokens = .default
             editorFontFamily = ".AppleSystemUIFont"
             editorFontSize = 15
-            editorLineHeight = 1.7
-            editorParagraphSpacing = 0.8
+            editorLineHeight = 1.4
+            paragraphSpacingBefore = 0.0
+            paragraphSpacingAfter = 0.3
+            h1SpacingBefore = 1.2
+            h1SpacingAfter = 0.0
+            h2SpacingBefore = 1.0
+            h2SpacingAfter = 0.0
+            h3SpacingBefore = 0.8
+            h3SpacingAfter = 0.0
             editorContentWidth = 640
             editorPadding = 48
             
@@ -138,8 +202,15 @@ final class ThemeManager {
             tokens = .default
             editorFontFamily = "New York"  // Apple's serif font
             editorFontSize = 18
-            editorLineHeight = 1.8
-            editorParagraphSpacing = 1.2
+            editorLineHeight = 1.4
+            paragraphSpacingBefore = 0.0
+            paragraphSpacingAfter = 0.3
+            h1SpacingBefore = 2.0
+            h1SpacingAfter = 0.0
+            h2SpacingBefore = 1.5
+            h2SpacingAfter = 0.0
+            h3SpacingBefore = 1.2
+            h3SpacingAfter = 0.0
             editorContentWidth = 680
             editorPadding = 40
             
@@ -201,9 +272,23 @@ final class ThemeManager {
         let fontFamily = editorFontFamily == ".AppleSystemUIFont" 
             ? "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" 
             : "'\(editorFontFamily)', -apple-system, sans-serif"
-        let paragraphMargin = editorFontSize * editorParagraphSpacing
-        let headingMarginTop = editorFontSize * 1.5
-        let headingMarginBottom = editorFontSize * 0.5
+        
+        // Per-style spacing (multiplied by font size)
+        let pMarginTop = Int(editorFontSize * paragraphSpacingBefore)
+        let pMarginBottom = Int(editorFontSize * paragraphSpacingAfter)
+        let h1MarginTop = Int(editorFontSize * h1SpacingBefore)
+        let h1MarginBottom = Int(editorFontSize * h1SpacingAfter)
+        let h2MarginTop = Int(editorFontSize * h2SpacingBefore)
+        let h2MarginBottom = Int(editorFontSize * h2SpacingAfter)
+        let h3MarginTop = Int(editorFontSize * h3SpacingBefore)
+        let h3MarginBottom = Int(editorFontSize * h3SpacingAfter)
+        
+        // General spacing for other elements (use paragraph after spacing as base)
+        let paragraphMargin = editorFontSize * paragraphSpacingAfter
+        
+        // Background color
+        let backgroundColor = isDark ? editorBackgroundColorDark : editorBackgroundColorLight
+        let backgroundColorHex = backgroundColor.toHex() ?? (isDark ? "#1e1e1e" : "#ffffff")
         
         return """
         \(colorVars)
@@ -213,6 +298,7 @@ final class ThemeManager {
         #editor {
             padding: \(Int(editorPadding))px;
             padding-top: \(Int(editorPadding) + 52)px; /* Extra space for formatting toolbar */
+            background-color: \(backgroundColorHex);
         }
         
         /* Base Typography */
@@ -225,15 +311,26 @@ final class ThemeManager {
             color: var(--writa-editor-text);
             outline: none;
             min-height: 300px;
+            background-color: transparent;
         }
         
         /* Paragraphs */
         .tiptap p {
-            margin: 0 0 \(Int(paragraphMargin))px 0;
+            margin: \(pMarginTop)px 0 \(pMarginBottom)px 0;
+            line-height: \(editorLineHeight);
+        }
+        
+        .tiptap p:first-child {
+            margin-top: 0;
         }
         
         .tiptap p:last-child {
             margin-bottom: 0;
+        }
+        
+        /* Ensure consistent line-height for all inline content */
+        .tiptap p *, .tiptap li * {
+            line-height: inherit;
         }
         
         /* Headings */
@@ -241,7 +338,7 @@ final class ThemeManager {
             font-size: \(Int(editorFontSize * 2))px;
             font-weight: 700;
             line-height: 1.2;
-            margin: \(Int(headingMarginTop))px 0 \(Int(headingMarginBottom))px 0;
+            margin: \(h1MarginTop)px 0 \(h1MarginBottom)px 0;
             color: var(--writa-text-primary);
         }
         
@@ -253,16 +350,24 @@ final class ThemeManager {
             font-size: \(Int(editorFontSize * 1.5))px;
             font-weight: 600;
             line-height: 1.3;
-            margin: \(Int(headingMarginTop))px 0 \(Int(headingMarginBottom))px 0;
+            margin: \(h2MarginTop)px 0 \(h2MarginBottom)px 0;
             color: var(--writa-text-primary);
+        }
+        
+        .tiptap h2:first-child {
+            margin-top: 0;
         }
         
         .tiptap h3 {
             font-size: \(Int(editorFontSize * 1.25))px;
             font-weight: 600;
             line-height: 1.35;
-            margin: \(Int(headingMarginTop * 0.8))px 0 \(Int(headingMarginBottom))px 0;
+            margin: \(h3MarginTop)px 0 \(h3MarginBottom)px 0;
             color: var(--writa-text-primary);
+        }
+        
+        .tiptap h3:first-child {
+            margin-top: 0;
         }
         
         /* Text Formatting */
@@ -270,11 +375,68 @@ final class ThemeManager {
         .tiptap em { font-style: italic; }
         .tiptap u { text-decoration: underline; }
         .tiptap s { text-decoration: line-through; color: var(--writa-text-secondary); }
+        /* Highlight colors - brighter in dark mode for readability */
         .tiptap mark { 
-            background-color: \(isDark ? "rgba(254, 240, 138, 0.3)" : "rgba(254, 240, 138, 0.8)");
             padding: 0.1em 0.2em;
             border-radius: 2px;
         }
+        
+        \(isDark ? """
+        /* Dark mode highlights - balanced opacity (0.4) with white text for readability */
+        /* TipTap applies colors as inline styles, so we override for better visibility */
+        .tiptap mark[style*="#fef08a"],
+        .tiptap mark[style*="#FEF08A"],
+        .tiptap mark[data-color="#fef08a"],
+        .tiptap mark[data-color="#FEF08A"] {
+            background-color: rgba(254, 240, 138, 0.4) !important;
+            color: var(--writa-text-primary) !important;
+        }
+        .tiptap mark[style*="#86efac"],
+        .tiptap mark[style*="#86EFAC"],
+        .tiptap mark[data-color="#86efac"],
+        .tiptap mark[data-color="#86EFAC"] {
+            background-color: rgba(134, 239, 172, 0.4) !important;
+            color: var(--writa-text-primary) !important;
+        }
+        .tiptap mark[style*="#93c5fd"],
+        .tiptap mark[style*="#93C5FD"],
+        .tiptap mark[data-color="#93c5fd"],
+        .tiptap mark[data-color="#93C5FD"] {
+            background-color: rgba(147, 197, 253, 0.4) !important;
+            color: var(--writa-text-primary) !important;
+        }
+        .tiptap mark[style*="#f9a8d4"],
+        .tiptap mark[style*="#F9A8D4"],
+        .tiptap mark[data-color="#f9a8d4"],
+        .tiptap mark[data-color="#F9A8D4"] {
+            background-color: rgba(249, 168, 212, 0.4) !important;
+            color: var(--writa-text-primary) !important;
+        }
+        .tiptap mark[style*="#fdba74"],
+        .tiptap mark[style*="#FDBA74"],
+        .tiptap mark[data-color="#fdba74"],
+        .tiptap mark[data-color="#FDBA74"] {
+            background-color: rgba(253, 186, 116, 0.4) !important;
+            color: var(--writa-text-primary) !important;
+        }
+        .tiptap mark[style*="#c4b5fd"],
+        .tiptap mark[style*="#C4B5FD"],
+        .tiptap mark[data-color="#c4b5fd"],
+        .tiptap mark[data-color="#C4B5FD"] {
+            background-color: rgba(196, 181, 253, 0.4) !important;
+            color: var(--writa-text-primary) !important;
+        }
+        /* Default for any other highlight color in dark mode */
+        .tiptap mark {
+            background-color: rgba(254, 240, 138, 0.4) !important;
+            color: var(--writa-text-primary) !important;
+        }
+        """ : """
+        /* Light mode highlights - standard opacity */
+        .tiptap mark {
+            background-color: rgba(254, 240, 138, 0.8);
+        }
+        """)
         
         /* Inline Code */
         .tiptap code {
@@ -311,6 +473,7 @@ final class ThemeManager {
         
         .tiptap li {
             margin-bottom: \(Int(paragraphMargin * 0.3))px;
+            line-height: \(editorLineHeight);
         }
         
         .tiptap li p {
@@ -433,12 +596,30 @@ final class ThemeManager {
     // MARK: - Persistence
     
     private func persistSettings() {
+        editorSettingsVersion += 1  // Trigger observers
+        
         UserDefaults.standard.set(mode.rawValue, forKey: "theme.mode")
         UserDefaults.standard.set(preset.rawValue, forKey: "theme.preset")
         UserDefaults.standard.set(editorFontFamily, forKey: "theme.editorFontFamily")
         UserDefaults.standard.set(editorFontSize, forKey: "theme.editorFontSize")
         UserDefaults.standard.set(editorLineHeight, forKey: "theme.editorLineHeight")
-        UserDefaults.standard.set(editorParagraphSpacing, forKey: "theme.editorParagraphSpacing")
+        
+        // Per-style spacing
+        UserDefaults.standard.set(paragraphSpacingBefore, forKey: "theme.paragraphSpacingBefore")
+        UserDefaults.standard.set(paragraphSpacingAfter, forKey: "theme.paragraphSpacingAfter")
+        UserDefaults.standard.set(h1SpacingBefore, forKey: "theme.h1SpacingBefore")
+        UserDefaults.standard.set(h1SpacingAfter, forKey: "theme.h1SpacingAfter")
+        UserDefaults.standard.set(h2SpacingBefore, forKey: "theme.h2SpacingBefore")
+        UserDefaults.standard.set(h2SpacingAfter, forKey: "theme.h2SpacingAfter")
+        UserDefaults.standard.set(h3SpacingBefore, forKey: "theme.h3SpacingBefore")
+        UserDefaults.standard.set(h3SpacingAfter, forKey: "theme.h3SpacingAfter")
+        
+        // Background colors - always save explicitly
+        let lightHex = editorBackgroundColorLight.toHex() ?? "#ffffff"
+        let darkHex = editorBackgroundColorDark.toHex() ?? "#1e1e1e"
+        UserDefaults.standard.set(lightHex, forKey: "theme.editorBackgroundColorLight")
+        UserDefaults.standard.set(darkHex, forKey: "theme.editorBackgroundColorDark")
+        
         UserDefaults.standard.set(editorContentWidth, forKey: "theme.editorContentWidth")
         UserDefaults.standard.set(editorPadding, forKey: "theme.editorPadding")
         UserDefaults.standard.set(useSystemAccent, forKey: "theme.useSystemAccent")
@@ -450,8 +631,10 @@ final class ThemeManager {
             self.mode = mode
         }
         
+        // Load preset without triggering applyPreset (to avoid overwriting loaded colors)
         if let presetString = UserDefaults.standard.string(forKey: "theme.preset"),
            let preset = ThemePreset(rawValue: presetString) {
+            // Set preset - isLoadingSettings flag prevents applyPreset from running
             self.preset = preset
         }
         
@@ -469,9 +652,59 @@ final class ThemeManager {
             self.editorLineHeight = lineHeight
         }
         
-        let paragraphSpacing = UserDefaults.standard.double(forKey: "theme.editorParagraphSpacing")
-        if paragraphSpacing > 0 {
-            self.editorParagraphSpacing = paragraphSpacing
+        // Per-style spacing (check for existence since 0 is valid)
+        if UserDefaults.standard.object(forKey: "theme.paragraphSpacingBefore") != nil {
+            self.paragraphSpacingBefore = UserDefaults.standard.double(forKey: "theme.paragraphSpacingBefore")
+        }
+        if UserDefaults.standard.object(forKey: "theme.paragraphSpacingAfter") != nil {
+            self.paragraphSpacingAfter = UserDefaults.standard.double(forKey: "theme.paragraphSpacingAfter")
+        }
+        if UserDefaults.standard.object(forKey: "theme.h1SpacingBefore") != nil {
+            self.h1SpacingBefore = UserDefaults.standard.double(forKey: "theme.h1SpacingBefore")
+        }
+        if UserDefaults.standard.object(forKey: "theme.h1SpacingAfter") != nil {
+            self.h1SpacingAfter = UserDefaults.standard.double(forKey: "theme.h1SpacingAfter")
+        }
+        if UserDefaults.standard.object(forKey: "theme.h2SpacingBefore") != nil {
+            self.h2SpacingBefore = UserDefaults.standard.double(forKey: "theme.h2SpacingBefore")
+        }
+        if UserDefaults.standard.object(forKey: "theme.h2SpacingAfter") != nil {
+            self.h2SpacingAfter = UserDefaults.standard.double(forKey: "theme.h2SpacingAfter")
+        }
+        if UserDefaults.standard.object(forKey: "theme.h3SpacingBefore") != nil {
+            self.h3SpacingBefore = UserDefaults.standard.double(forKey: "theme.h3SpacingBefore")
+        }
+        if UserDefaults.standard.object(forKey: "theme.h3SpacingAfter") != nil {
+            self.h3SpacingAfter = UserDefaults.standard.double(forKey: "theme.h3SpacingAfter")
+        }
+        
+        // Background colors - load independently, always load if key exists
+        // Load light mode color
+        if let lightHex = UserDefaults.standard.string(forKey: "theme.editorBackgroundColorLight"),
+           !lightHex.isEmpty {
+            if let lightColor = Color(hex: lightHex) {
+                self.editorBackgroundColorLight = lightColor
+            } else {
+                print("⚠️ Failed to parse light background color: \(lightHex), using default white")
+                self.editorBackgroundColorLight = Color(hex: "#ffffff") ?? .white
+            }
+        } else {
+            // No saved value - ensure default is white
+            self.editorBackgroundColorLight = Color(hex: "#ffffff") ?? .white
+        }
+        
+        // Load dark mode color
+        if let darkHex = UserDefaults.standard.string(forKey: "theme.editorBackgroundColorDark"),
+           !darkHex.isEmpty {
+            if let darkColor = Color(hex: darkHex) {
+                self.editorBackgroundColorDark = darkColor
+            } else {
+                print("⚠️ Failed to parse dark background color: \(darkHex), using default dark gray")
+                self.editorBackgroundColorDark = Color(hex: "#1e1e1e") ?? Color(white: 0.12)
+            }
+        } else {
+            // No saved value - ensure default is dark gray
+            self.editorBackgroundColorDark = Color(hex: "#1e1e1e") ?? Color(white: 0.12)
         }
         
         let contentWidth = UserDefaults.standard.double(forKey: "theme.editorContentWidth")

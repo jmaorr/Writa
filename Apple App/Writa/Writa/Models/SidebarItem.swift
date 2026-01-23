@@ -31,7 +31,7 @@ enum SidebarSectionType: Hashable, Identifiable {
 enum SidebarItemType: Hashable, Identifiable {
     // Library section
     case allDocuments
-    case inbox
+    case tasks
     case favorites
     case recent
     case trash
@@ -51,7 +51,7 @@ enum SidebarItemType: Hashable, Identifiable {
     var id: String {
         switch self {
         case .allDocuments: return "all"
-        case .inbox: return "inbox"
+        case .tasks: return "tasks"
         case .favorites: return "favorites"
         case .recent: return "recent"
         case .trash: return "trash"
@@ -115,10 +115,11 @@ extension SidebarItem {
         icon: "doc.text"
     )
     
-    static let inbox = SidebarItem(
-        type: .inbox,
-        title: "Inbox",
-        icon: "tray"
+    static let tasks = SidebarItem(
+        type: .tasks,
+        title: "Tasks",
+        icon: "checkmark.circle",
+        iconColor: .blue
     )
     
     static let favorites = SidebarItem(

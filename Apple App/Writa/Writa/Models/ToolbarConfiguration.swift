@@ -91,6 +91,9 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
     case link
     case table
     
+    // AI / Snippets
+    case promptSnippet
+    
     // Color
     case textColor
     
@@ -123,6 +126,7 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
         case .image: return "Image"
         case .link: return "Link"
         case .table: return "Table"
+        case .promptSnippet: return "Prompt Snippet"
         case .textColor: return "Text Color"
         }
     }
@@ -154,6 +158,7 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
         case .image: return "photo"
         case .link: return "link"
         case .table: return "tablecells"
+        case .promptSnippet: return "sparkles"
         case .textColor: return "paintpalette"
         }
     }
@@ -181,23 +186,34 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
         case .codeBlock: return "⌘⌥C"
         case .image: return "⌘⇧I"
         case .link: return "⌘K"
+        case .promptSnippet: return "⌘⌥P"
         default: return nil
         }
     }
     
-    /// Custom label style (nil = use icon, otherwise use text)
+    /// Custom label style for Settings view (compact icons)
     var customLabel: String? {
+        switch self {
+        case .title: return "H1"
+        case .heading: return "H2"
+        case .body: return "B"
+        default: return nil
+        }
+    }
+    
+    /// Label to display in the toolbar (full text for title/heading/body)
+    var toolbarLabel: String? {
         switch self {
         case .title: return "Title"
         case .heading: return "Heading"
         case .body: return "Body"
-        default: return nil
+        default: return customLabel
         }
     }
     
     /// Whether this tool uses a text label (wider button)
     var usesTextLabel: Bool {
-        customLabel != nil && customLabel!.count > 2
+        toolbarLabel != nil && toolbarLabel!.count > 2
     }
     
     var category: ToolCategory {
@@ -212,7 +228,7 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
             return .lists
         case .quote, .codeBlock, .divider:
             return .blocks
-        case .image, .link, .table:
+        case .image, .link, .table, .promptSnippet:
             return .media
         }
     }
@@ -284,14 +300,14 @@ class ToolbarConfiguration {
     // MARK: - Default Configuration
     
     static let defaultItems: [ToolbarEntry] = [
-        // Group 1: Text Styles + Bullets
-        .tool(.title), .tool(.heading), .tool(.body), .tool(.bulletList),
+        // Group 1: Text Styles
+        .tool(.title), .tool(.heading), .tool(.body),
         .separator,
         // Group 2: Text Formatting
-        .tool(.bold), .tool(.italic), .tool(.underline), .tool(.strikethrough),
+        .tool(.bold), .tool(.italic),
         .separator,
-        // Group 3: Task Card, Table, Image
-        .tool(.taskCard), .tool(.table), .tool(.image)
+        // Group 3: Lists and Media
+        .tool(.bulletList), .tool(.taskCard), .tool(.table), .tool(.promptSnippet) // Note: taskCard (Task Card), not taskList (Tasks)
     ]
     
     // MARK: - Item Management

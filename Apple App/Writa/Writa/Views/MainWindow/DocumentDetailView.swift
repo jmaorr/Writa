@@ -56,10 +56,34 @@ struct DocumentDetailView: View {
             // Re-apply theme when color scheme changes
             applyThemeCSS()
         }
-        .onChange(of: themeManager.editorFontSize) { _, _ in applyThemeCSS() }
-        .onChange(of: themeManager.editorFontFamily) { _, _ in applyThemeCSS() }
-        .onChange(of: themeManager.editorLineHeight) { _, _ in applyThemeCSS() }
-        .onChange(of: themeManager.editorParagraphSpacing) { _, _ in applyThemeCSS() }
+        .onChange(of: themeManager.editorSettingsVersion) { _, _ in
+            // Re-apply theme when any editor setting changes
+            applyThemeCSS()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .taskToggled)) { notification in
+            handleTaskToggled(notification)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("InsertPromptSnippet"))) { _ in
+            webView?.insertPromptSnippet()
+        }
+    }
+    
+    // MARK: - Task Sync
+    
+    private func handleTaskToggled(_ notification: Notification) {
+        guard let toggleInfo = notification.object as? TaskToggleInfo,
+              toggleInfo.documentID == document.id,
+              let webView = webView else { return }
+        
+        // Send command to TipTap to sync the task state
+        let js = "editorBridge.setTaskChecked(\(toggleInfo.nodeIndex), \(toggleInfo.isCompleted))"
+        webView.evaluateJavaScript(js) { _, error in
+            if let error = error {
+                print("❌ Error syncing task toggle: \(error)")
+            } else {
+                print("✅ Synced task toggle to editor")
+            }
+        }
     }
     
     // MARK: - Theme Application
@@ -514,6 +538,10 @@ struct LiquidGlassEditorToolbar: View {
     
     @Environment(\.toolbarConfiguration) private var config
     
+    // State for cascade animation
+    @State private var showColorPicker: Bool = false
+    @State private var visibleColorCount: Int = 0
+    
     // Spacing values
     private let glassSpacing: CGFloat = 16.0
     private let mergeOffset: CGFloat = -10.0
@@ -524,26 +552,83 @@ struct LiquidGlassEditorToolbar: View {
     var body: some View {
         GlassEffectContainer(spacing: glassSpacing) {
             HStack(spacing: glassSpacing) {
+                // Find which group contains the highlight tool
+                let highlightGroupIndex = config.groups.firstIndex(where: { $0.contains(.highlight) })
+                
                 // Render groups from configuration
                 ForEach(Array(config.groups.enumerated()), id: \.offset) { index, tools in
                     if !tools.isEmpty {
+                        // Calculate offset: groups after highlight get extra offset when highlight colors are shown
+                        let groupOffset: CGFloat = {
+                            if index == 0 { return 0 }
+                            var offset = CGFloat(index)
+                            // If highlight is active and this group comes after the highlight group, add extra offset
+                            if editorState.isHighlight, let highlightIndex = highlightGroupIndex, index > highlightIndex {
+                                offset += 1 // Extra offset to merge with color picker
+                            }
+                            return mergeOffset * offset
+                        }()
+                        
                         toolGroup(tools)
                             .glassEffect(.regular, in: .capsule)
-                            .offset(x: index > 0 ? mergeOffset * CGFloat(index) : 0)
+                            .offset(x: groupOffset)
+                        
+                        // Insert highlight color picker right after the group containing highlight
+                        if (editorState.isHighlight || showColorPicker) && index == highlightGroupIndex {
+                            highlightColorPicker
+                                .glassEffect(.regular, in: .capsule)
+                                .transition(.asymmetric(
+                                    insertion: .scale(scale: 0.8).combined(with: .opacity),
+                                    removal: .scale(scale: 0.8).combined(with: .opacity)
+                                ))
+                                .offset(x: mergeOffset * CGFloat(index + 1))
+                                .animation(.spring(response: 0.35, dampingFraction: 0.75), value: visibleColorCount)
+                        }
                     }
                 }
                 
                 // Overflow menu for hidden tools
                 if !config.hiddenTools.isEmpty {
+                    let overflowOffset = config.groups.count + (editorState.isHighlight && highlightGroupIndex != nil ? 1 : 0)
                     overflowButton
                         .glassEffect(.regular, in: .capsule)
-                        .offset(x: mergeOffset * CGFloat(config.groups.count))
+                        .offset(x: mergeOffset * CGFloat(overflowOffset))
                 }
                 
                 Spacer()
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
+            .animation(.spring(response: 0.35, dampingFraction: 0.75), value: editorState.isHighlight)
+            .animation(.spring(response: 0.35, dampingFraction: 0.75), value: config.groups.count)
+            .onChange(of: editorState.isHighlight) { oldValue, newValue in
+                if newValue && !showColorPicker {
+                    // Show color picker and cascade colors in
+                    showColorPicker = true
+                    visibleColorCount = 0
+                    // Cascade colors in with delay
+                    for i in 0..<6 {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.04) {
+                            if showColorPicker { // Only update if still showing
+                                visibleColorCount = i + 1
+                            }
+                        }
+                    }
+                } else if !newValue && showColorPicker {
+                    // Cascade colors out with overlapping timing for smoother cascade
+                    for i in (0..<6).reversed() {
+                        // Overlap animations: each starts before previous finishes (20ms delay instead of 50ms)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + Double(6 - i - 1) * 0.02) {
+                            visibleColorCount = i
+                        }
+                    }
+                    // Hide picker after all animations complete (6 colors × 20ms + buffer)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + Double(6) * 0.02 + 0.15) {
+                        showColorPicker = false
+                        visibleColorCount = 0
+                    }
+                }
+            }
         }
     }
     
@@ -568,7 +653,7 @@ struct LiquidGlassEditorToolbar: View {
         Button {
             executeToolAction(tool)
         } label: {
-            if let label = tool.customLabel {
+            if let label = tool.toolbarLabel {
                 // Text label button (Title, Heading, Body)
                 Text(label)
                     .font(.system(size: 12, weight: isActive ? .semibold : .medium))
@@ -617,6 +702,62 @@ struct LiquidGlassEditorToolbar: View {
             .help("More formatting options")
         }
         .frame(width: buttonSize, height: buttonSize)
+    }
+    
+    // MARK: - Highlight Color Picker
+    
+    private var highlightColorPicker: some View {
+        // Common highlight colors
+        let colors: [(name: String, color: Color)] = [
+            ("Yellow", Color(hex: "#fef08a") ?? .yellow),
+            ("Green", Color(hex: "#86efac") ?? .green),
+            ("Blue", Color(hex: "#93c5fd") ?? .blue),
+            ("Pink", Color(hex: "#f9a8d4") ?? .pink),
+            ("Orange", Color(hex: "#fdba74") ?? .orange),
+            ("Purple", Color(hex: "#c4b5fd") ?? .purple)
+        ]
+        
+        // Calculate width based on visible colors (20px per color + 4px spacing + 16px padding)
+        let colorWidth: CGFloat = 20.0
+        let spacing: CGFloat = 4.0
+        let horizontalPadding: CGFloat = 16.0
+        let calculatedWidth = CGFloat(visibleColorCount) * colorWidth + CGFloat(max(0, visibleColorCount - 1)) * spacing + horizontalPadding
+        
+        return HStack(spacing: 4) {
+            ForEach(Array(colors.enumerated()), id: \.offset) { index, colorInfo in
+                let isSelected = editorState.highlightColor.lowercased() == colorInfo.color.toHex()?.lowercased()
+                let isVisible = visibleColorCount > index
+                
+                Button {
+                    if let hex = colorInfo.color.toHex() {
+                        webView?.evaluateJavaScript("editorBridge.setHighlightColor('\(hex)')")
+                    }
+                } label: {
+                    Circle()
+                        .fill(colorInfo.color)
+                        .frame(width: 20, height: 20)
+                        .overlay(
+                            Circle()
+                                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help(colorInfo.name)
+                .opacity(isVisible ? 1 : 0)
+                .scaleEffect(isVisible ? 1 : 0.3)
+                .offset(x: isVisible ? 0 : -30)
+                .animation(.spring(response: 0.35, dampingFraction: 0.75), value: isVisible)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(width: calculatedWidth, alignment: .leading)
+        .clipped() // Clip to prevent overflow during animation
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: visibleColorCount)
     }
     
     // MARK: - Tool State
@@ -672,7 +813,27 @@ struct LiquidGlassEditorToolbar: View {
         case .code:
             webView.toggleCode()
         case .highlight:
+            // Immediately show color picker when highlight button is clicked (before state update)
+            let wasHighlighted = editorState.isHighlight
             webView.evaluateJavaScript("editorBridge.toggleHighlight()")
+            
+            // If we're toggling highlight ON (wasn't highlighted before), show colors immediately
+            if !wasHighlighted {
+                showColorPicker = true
+                visibleColorCount = 0
+                // Cascade colors in
+                for i in 0..<6 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.04) {
+                        if showColorPicker {
+                            visibleColorCount = i + 1
+                        }
+                    }
+                }
+            } else {
+                // If toggling OFF, hide immediately (state will update from JS)
+                showColorPicker = false
+                visibleColorCount = 0
+            }
         case .subscript_:
             webView.evaluateJavaScript("editorBridge.toggleSubscript()")
         case .superscript_:
@@ -705,6 +866,8 @@ struct LiquidGlassEditorToolbar: View {
             onShowLinkDialog()
         case .table:
             webView.evaluateJavaScript("editorBridge.insertTable()")
+        case .promptSnippet:
+            webView.insertPromptSnippet()
         case .textColor:
             onShowColorPicker()
         }

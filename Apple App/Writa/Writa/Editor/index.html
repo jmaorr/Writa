@@ -37,7 +37,7 @@
             display: flex;
             align-items: flex-start;
             gap: 12px;
-            padding: 16px 14px;
+            padding: 18px 16px;
             margin: 6px 0;
             border: 1px solid var(--writa-border-color, rgba(128, 128, 128, 0.2));
             border-radius: 16px;
@@ -59,7 +59,6 @@
         }
         
         .task-card.is-completed .task-card-title {
-            text-decoration: line-through;
             color: var(--writa-text-secondary, #888);
         }
         
@@ -80,8 +79,8 @@
         }
         
         .task-card-checkbox:hover {
-            border-color: var(--writa-accent-color, #007AFF);
-            background: var(--writa-accent-shadow, rgba(0, 122, 255, 0.1));
+            border-color: var(--writa-success-color, #34C759);
+            background: rgba(52, 199, 89, 0.15);
         }
         
         .task-card.is-completed .task-card-checkbox {
@@ -171,7 +170,7 @@
         #task-action-bar {
             display: none;
             position: fixed;
-            gap: 4px;
+            gap: 6px;
             align-items: center;
             z-index: 1000;
             pointer-events: auto;
@@ -184,49 +183,273 @@
         .task-card-action {
             display: inline-flex;
             align-items: center;
-            height: 20px;
-            gap: 3px;
-            padding: 0 6px;
+            gap: 2px;
+            padding: 2px 4px;
             font-size: 10px;
             color: var(--writa-text-secondary, #666);
-            background: var(--writa-chip-bg, rgba(128, 128, 128, 0.08));
-            border: 1px solid var(--writa-border-color, rgba(128, 128, 128, 0.15));
-            border-radius: 4px;
+            background: transparent;
+            border: none;
+            border-radius: 3px;
             cursor: pointer;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             white-space: nowrap;
-            transition: all 0.15s ease;
+            transition: color 0.15s ease;
         }
         
         .task-card-action:hover {
-            background: var(--writa-chip-hover, rgba(128, 128, 128, 0.15));
-            border-color: var(--writa-border-hover, rgba(128, 128, 128, 0.25));
             color: var(--writa-text-primary, #333);
         }
         
         .task-card-action-shortcut {
             font-size: 9px;
-            opacity: 0.6;
-        }
-        
-        .task-card-action--delete:hover {
-            background: rgba(255, 59, 48, 0.1);
-            border-color: rgba(255, 59, 48, 0.3);
-            color: #ff3b30;
-        }
-        
-        .task-card-action:active {
-            transform: scale(0.95);
-        }
-        
-        .task-card-action-shortcut {
-            font-weight: 600;
             opacity: 0.7;
         }
         
         .task-card-action--delete:hover {
-            background: rgba(255, 59, 48, 0.15);
             color: #FF3B30;
+        }
+        
+        /* Prompt Snippet Styles */
+        .prompt-snippet-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .prompt-snippet {
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 18px 16px;
+            margin: 6px 0;
+            border: 1px solid var(--writa-border-color, rgba(128, 128, 128, 0.2));
+            border-radius: 16px;
+            background: var(--writa-card-bg, rgba(128, 128, 128, 0.05));
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        
+        .prompt-snippet:hover {
+            border-color: var(--writa-border-hover, rgba(128, 128, 128, 0.3));
+        }
+        
+        .prompt-snippet:focus-within {
+            border-color: var(--writa-accent-color, #007AFF);
+            box-shadow: 0 0 0 3px var(--writa-accent-shadow, rgba(0, 122, 255, 0.15));
+        }
+        
+        .prompt-snippet-checkbox {
+            flex-shrink: 0;
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            border: 2px solid var(--writa-checkbox-border, rgba(128, 128, 128, 0.4));
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            background: transparent;
+            user-select: none;
+        }
+        
+        .prompt-snippet-checkbox:hover {
+            border-color: var(--writa-success-color, #34C759);
+            background: rgba(52, 199, 89, 0.15);
+        }
+        
+        .prompt-snippet.is-completed .prompt-snippet-checkbox {
+            background: var(--writa-success-color, #34C759);
+            border-color: var(--writa-success-color, #34C759);
+        }
+        
+        .prompt-snippet.is-completed .prompt-snippet-checkbox::after {
+            content: '✓';
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            line-height: 1;
+        }
+        
+        .prompt-snippet.is-completed {
+            opacity: 0.6;
+        }
+        
+        .prompt-snippet.is-completed .prompt-snippet-title {
+            color: var(--writa-text-secondary, #888);
+        }
+        
+        .prompt-snippet-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .prompt-snippet-title {
+            font-weight: 500;
+            font-size: 0.9em;
+            line-height: 1.4;
+            outline: none;
+            min-height: 1.4em;
+            padding-right: 180px; /* Space for action buttons */
+        }
+        
+        .prompt-snippet-title.is-empty::before {
+            content: 'Snippet title...';
+            color: var(--writa-text-placeholder, #999);
+            pointer-events: none;
+            float: left;
+            height: 0;
+        }
+        
+        .prompt-snippet-body {
+            font-size: 0.8em;
+            color: var(--writa-text-secondary, #666);
+            line-height: 1.4;
+            margin-top: 2px;
+            outline: none;
+            min-height: 1.4em;
+        }
+        
+        .prompt-snippet-body.is-empty::before {
+            content: 'Write your prompt here...';
+            color: var(--writa-text-placeholder, #999);
+            pointer-events: none;
+            float: left;
+            height: 0;
+        }
+        
+        .prompt-snippet-actions {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            gap: 4px;
+        }
+        
+        .prompt-snippet-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 3px 8px;
+            font-size: 11px;
+            color: var(--writa-text-secondary, #666);
+            background: transparent;
+            border: 1px solid var(--writa-border-color, rgba(128, 128, 128, 0.2));
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            transition: all 0.15s ease;
+        }
+        
+        .prompt-snippet-action:hover {
+            background: var(--writa-card-bg, rgba(128, 128, 128, 0.1));
+            border-color: var(--writa-border-hover, rgba(128, 128, 128, 0.3));
+        }
+        
+        .prompt-snippet-action--done {
+            color: var(--writa-success-color, #34C759);
+            border-color: var(--writa-success-color, #34C759);
+        }
+        
+        .prompt-snippet-action--done:hover {
+            background: rgba(52, 199, 89, 0.1);
+        }
+        
+        .prompt-snippet-action--delete {
+            color: var(--writa-text-secondary, #888);
+        }
+        
+        .prompt-snippet-action--delete:hover {
+            color: #FF3B30;
+            border-color: #FF3B30;
+            background: rgba(255, 59, 48, 0.1);
+        }
+        
+        .prompt-snippet-action-icon {
+            font-size: 12px;
+            line-height: 1;
+        }
+        
+        /* Collapsed state */
+        .prompt-snippet.is-collapsed {
+            cursor: pointer;
+        }
+        
+        .prompt-snippet.is-collapsed:hover {
+            background: var(--writa-card-hover-bg, rgba(128, 128, 128, 0.08));
+        }
+        
+        .prompt-snippet.is-collapsed .prompt-snippet-content {
+            display: none;
+            pointer-events: none;
+        }
+        
+        .prompt-snippet.is-collapsed .prompt-snippet-actions {
+            display: none;
+        }
+        
+        .prompt-snippet-preview {
+            display: none;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .prompt-snippet.is-collapsed .prompt-snippet-preview {
+            display: block;
+        }
+        
+        .prompt-snippet-preview-title {
+            font-weight: 500;
+            font-size: 0.9em;
+            color: var(--writa-text-primary, #333);
+            line-height: 1.4;
+            padding-right: 120px; /* Space for Edit/Copy buttons */
+        }
+        
+        .prompt-snippet-preview-body {
+            font-size: 0.8em;
+            color: var(--writa-text-secondary, #888);
+            line-height: 1.4;
+            margin-top: 2px;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
+        .prompt-snippet-preview-actions {
+            display: none;
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            gap: 4px;
+        }
+        
+        .prompt-snippet.is-collapsed .prompt-snippet-preview-actions {
+            display: flex;
+        }
+        
+        /* Copy feedback */
+        .prompt-snippet-copy-feedback {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 8px 16px;
+            background: var(--writa-success-color, #34C759);
+            color: white;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 10;
+        }
+        
+        .prompt-snippet-copy-feedback.visible {
+            opacity: 1;
         }
     </style>
     <style id="theme-styles"></style>
@@ -426,23 +649,24 @@
                             if (!listAncestor) return false
                             
                             const { node: list, depth: listDepth } = listAncestor
+                            const listEnd = $from.after(listDepth)
                             
                             if (list.childCount === 1) {
                                 // Only task in list - replace entire list with paragraph
                                 const listStart = $from.before(listDepth)
-                                const listEnd = $from.after(listDepth)
                                 return editor.chain()
                                     .deleteRange({ from: listStart, to: listEnd })
                                     .insertContentAt(listStart, { type: 'paragraph' })
                                     .setTextSelection(listStart + 1)
                                     .run()
                             } else {
-                                // Multiple tasks - just delete this one
+                                // Multiple tasks - delete this one and insert paragraph after list
+                                const taskStart = $from.before(taskCardDepth)
+                                const taskEnd = $from.after(taskCardDepth)
                                 return editor.chain()
-                                    .deleteRange({ 
-                                        from: $from.before(taskCardDepth), 
-                                        to: $from.after(taskCardDepth) 
-                                    })
+                                    .deleteRange({ from: taskStart, to: taskEnd })
+                                    .insertContentAt(listEnd - (taskEnd - taskStart), { type: 'paragraph' })
+                                    .setTextSelection(listEnd - (taskEnd - taskStart) + 1)
                                     .run()
                             }
                         }
@@ -531,22 +755,24 @@
                         if (!listAncestor) return false
                         
                         const { node: list, depth: listDepth } = listAncestor
+                        const listEnd = $from.after(listDepth)
                         
                         if (list.childCount === 1) {
                             // Only task - replace list with paragraph
                             const listStart = $from.before(listDepth)
                             return editor.chain()
-                                .deleteRange({ from: listStart, to: $from.after(listDepth) })
+                                .deleteRange({ from: listStart, to: listEnd })
                                 .insertContentAt(listStart, { type: 'paragraph' })
                                 .setTextSelection(listStart + 1)
                                 .run()
                         } else {
-                            // Delete just this task
+                            // Delete just this task and insert paragraph after list
+                            const taskStart = $from.before(taskCardDepth)
+                            const taskEnd = $from.after(taskCardDepth)
                             return editor.chain()
-                                .deleteRange({ 
-                                    from: $from.before(taskCardDepth), 
-                                    to: $from.after(taskCardDepth) 
-                                })
+                                .deleteRange({ from: taskStart, to: taskEnd })
+                                .insertContentAt(listEnd - (taskEnd - taskStart), { type: 'paragraph' })
+                                .setTextSelection(listEnd - (taskEnd - taskStart) + 1)
                                 .run()
                         }
                     }
@@ -643,6 +869,719 @@
         })
         
         // ============================================
+        // Prompt Snippet Nodes
+        // ============================================
+        
+        // Helper: Create a new empty prompt snippet node
+        function createPromptSnippet(schema) {
+            const title = schema.nodes.promptSnippetTitle.create()
+            const body = schema.nodes.promptSnippetBody.create()
+            return schema.nodes.promptSnippet.create({ expanded: true }, [title, body])
+        }
+        
+        // PromptSnippetList Node
+        const PromptSnippetList = Node.create({
+            name: 'promptSnippetList',
+            group: 'block',
+            content: 'promptSnippet+',
+            
+            parseHTML() {
+                return [{ tag: 'div[data-type="prompt-snippet-list"]' }]
+            },
+            
+            renderHTML({ HTMLAttributes }) {
+                return ['div', mergeAttributes(HTMLAttributes, { 
+                    'data-type': 'prompt-snippet-list',
+                    'class': 'prompt-snippet-list'
+                }), 0]
+            }
+        })
+        
+        // Helper: Check if a prompt snippet is empty (no text in title or body)
+        function isPromptSnippetEmpty(snippet) {
+            let empty = true
+            snippet.forEach(child => {
+                if (child.textContent.length > 0) empty = false
+            })
+            return empty
+        }
+        
+        // PromptSnippet Node
+        const PromptSnippet = Node.create({
+            name: 'promptSnippet',
+            group: 'block',
+            content: 'promptSnippetTitle promptSnippetBody',
+            defining: true,
+            
+            addAttributes() {
+                return {
+                    expanded: {
+                        default: true,
+                        parseHTML: el => el.getAttribute('data-expanded') !== 'false',
+                        renderHTML: attrs => ({ 'data-expanded': attrs.expanded ? 'true' : 'false' })
+                    },
+                    completed: {
+                        default: false,
+                        parseHTML: el => el.getAttribute('data-completed') === 'true',
+                        renderHTML: attrs => ({ 'data-completed': attrs.completed ? 'true' : 'false' })
+                    }
+                }
+            },
+            
+            parseHTML() {
+                return [{ tag: 'div[data-type="prompt-snippet"]' }]
+            },
+            
+            renderHTML({ node, HTMLAttributes }) {
+                const classes = ['prompt-snippet']
+                if (!node.attrs.expanded) classes.push('is-collapsed')
+                if (node.attrs.completed) classes.push('is-completed')
+                return ['div', mergeAttributes(HTMLAttributes, { 
+                    'data-type': 'prompt-snippet',
+                    'class': classes.join(' ')
+                }), 0]
+            },
+            
+            addCommands() {
+                return {
+                    // Insert a new prompt snippet (or list with snippet if not in one)
+                    insertPromptSnippet: () => ({ chain, state, editor }) => {
+                        const { schema, selection: { $from } } = state
+                        const snippet = createPromptSnippet(schema)
+                        
+                        // If already in a prompt snippet list, insert after current snippet
+                        if (editor.isActive('promptSnippetList')) {
+                            const ancestor = findAncestor($from, 'promptSnippet')
+                            if (ancestor) {
+                                const insertPos = $from.after(ancestor.depth)
+                                return chain()
+                                    .insertContentAt(insertPos, snippet.toJSON())
+                                    .setTextSelection(insertPos + 2)
+                                    .run()
+                            }
+                        }
+                        
+                        // Create new list - replace current block
+                        const blockStart = $from.before($from.depth)
+                        const blockEnd = $from.after($from.depth)
+                        const snippetList = schema.nodes.promptSnippetList.create(null, [snippet])
+                        
+                        return chain()
+                            .deleteRange({ from: blockStart, to: blockEnd })
+                            .insertContentAt(blockStart, snippetList.toJSON())
+                            .setTextSelection(blockStart + 3)
+                            .run()
+                    },
+                    
+                    // Toggle expanded/collapsed state of current prompt snippet
+                    togglePromptSnippetExpanded: () => ({ tr, state, dispatch, editor }) => {
+                        const ancestor = findAncestor(state.selection.$from, 'promptSnippet')
+                        if (!ancestor) return false
+                        
+                        if (dispatch) {
+                            const pos = state.selection.$from.before(ancestor.depth)
+                            const newExpanded = !ancestor.node.attrs.expanded
+                            
+                            tr.setNodeMarkup(pos, undefined, {
+                                ...ancestor.node.attrs,
+                                expanded: newExpanded
+                            })
+                            
+                            // If collapsing, move cursor out of the snippet
+                            if (!newExpanded) {
+                                const afterSnippet = state.selection.$from.after(ancestor.depth)
+                                tr.setSelection(state.selection.constructor.near(tr.doc.resolve(afterSnippet)))
+                            }
+                            
+                            dispatch(tr)
+                        }
+                        return true
+                    },
+                    
+                    // Copy prompt snippet content to clipboard
+                    copyPromptSnippet: () => ({ state }) => {
+                        const ancestor = findAncestor(state.selection.$from, 'promptSnippet')
+                        if (!ancestor) return false
+                        
+                        // Get text content from the body only
+                        let bodyText = ''
+                        ancestor.node.forEach(child => {
+                            if (child.type.name === 'promptSnippetBody') {
+                                bodyText = child.textContent
+                            }
+                        })
+                        
+                        if (bodyText) {
+                            navigator.clipboard.writeText(bodyText)
+                        }
+                        return true
+                    },
+                    
+                    // Expand a specific prompt snippet by position
+                    expandPromptSnippetAt: (pos) => ({ tr, state, dispatch }) => {
+                        const node = state.doc.nodeAt(pos)
+                        if (!node || node.type.name !== 'promptSnippet') return false
+                        
+                        if (dispatch) {
+                            tr.setNodeMarkup(pos, undefined, {
+                                ...node.attrs,
+                                expanded: true
+                            })
+                            // Position cursor in the title
+                            tr.setSelection(state.selection.constructor.near(tr.doc.resolve(pos + 2)))
+                            dispatch(tr)
+                        }
+                        return true
+                    },
+                    
+                    // Toggle completed state of a prompt snippet at position
+                    togglePromptSnippetCompleted: (pos) => ({ tr, state, dispatch }) => {
+                        const node = state.doc.nodeAt(pos)
+                        if (!node || node.type.name !== 'promptSnippet') return false
+                        
+                        if (dispatch) {
+                            tr.setNodeMarkup(pos, undefined, {
+                                ...node.attrs,
+                                completed: !node.attrs.completed
+                            })
+                            dispatch(tr)
+                        }
+                        return true
+                    }
+                }
+            },
+            
+            addKeyboardShortcuts() {
+                return {
+                    // Escape: collapse snippet when inside
+                    'Escape': ({ editor }) => {
+                        if (!editor.isActive('promptSnippet')) return false
+                        
+                        const { $from } = editor.state.selection
+                        const ancestor = findAncestor($from, 'promptSnippet')
+                        if (!ancestor || !ancestor.node.attrs.expanded) return false
+                        
+                        return editor.commands.togglePromptSnippetExpanded()
+                    },
+                    
+                    // Enter: move to body from title, or collapse & new snippet from body
+                    'Enter': ({ editor }) => {
+                        if (!editor.isActive('promptSnippet')) return false
+                        
+                        const { state } = editor
+                        const { $from } = state.selection
+                        const snippetAncestor = findAncestor($from, 'promptSnippet')
+                        if (!snippetAncestor) return false
+                        
+                        const { node: snippet, depth: snippetDepth } = snippetAncestor
+                        
+                        // If snippet is empty, exit snippet formatting
+                        if (isPromptSnippetEmpty(snippet)) {
+                            const listAncestor = findAncestor($from, 'promptSnippetList')
+                            if (!listAncestor) return false
+                            
+                            const { node: list, depth: listDepth } = listAncestor
+                            const listEnd = $from.after(listDepth)
+                            
+                            if (list.childCount === 1) {
+                                // Only snippet in list - replace entire list with paragraph
+                                const listStart = $from.before(listDepth)
+                                return editor.chain()
+                                    .deleteRange({ from: listStart, to: listEnd })
+                                    .insertContentAt(listStart, { type: 'paragraph' })
+                                    .setTextSelection(listStart + 1)
+                                    .run()
+                            } else {
+                                // Multiple snippets - delete this one and insert paragraph after list
+                                const snippetStart = $from.before(snippetDepth)
+                                const snippetEnd = $from.after(snippetDepth)
+                                return editor.chain()
+                                    .deleteRange({ from: snippetStart, to: snippetEnd })
+                                    .insertContentAt(listEnd - (snippetEnd - snippetStart), { type: 'paragraph' })
+                                    .setTextSelection(listEnd - (snippetEnd - snippetStart) + 1)
+                                    .run()
+                            }
+                        }
+                        
+                        // Check if we're in title or body
+                        const titleAncestor = findAncestor($from, 'promptSnippetTitle')
+                        const bodyAncestor = findAncestor($from, 'promptSnippetBody')
+                        
+                        if (titleAncestor) {
+                            // In title - move to body
+                            const snippetStart = $from.before(snippetDepth)
+                            let bodyPos = null
+                            let offset = 1
+                            snippet.forEach(child => {
+                                if (child.type.name === 'promptSnippetTitle') {
+                                    offset += child.nodeSize
+                                } else if (child.type.name === 'promptSnippetBody') {
+                                    bodyPos = snippetStart + offset + 1
+                                }
+                            })
+                            
+                            if (bodyPos) {
+                                return editor.commands.setTextSelection(bodyPos)
+                            }
+                        } else if (bodyAncestor) {
+                            // In body - collapse current snippet and create new one
+                            const pos = $from.before(snippetDepth)
+                            const insertPos = $from.after(snippetDepth)
+                            
+                            // Collapse current snippet
+                            editor.view.dispatch(
+                                editor.state.tr.setNodeMarkup(pos, undefined, {
+                                    ...snippet.attrs,
+                                    expanded: false
+                                })
+                            )
+                            
+                            // Insert new snippet after
+                            return editor.chain()
+                                .insertContentAt(insertPos, createPromptSnippet(state.schema).toJSON())
+                                .setTextSelection(insertPos + 2)
+                                .run()
+                        }
+                        
+                        return false
+                    },
+                    
+                    // Tab: move from title to body
+                    'Tab': ({ editor }) => {
+                        if (!editor.isActive('promptSnippet')) return false
+                        
+                        const { state } = editor
+                        const { $from } = state.selection
+                        const titleAncestor = findAncestor($from, 'promptSnippetTitle')
+                        if (!titleAncestor) return false
+                        
+                        const snippetDepth = titleAncestor.depth - 1
+                        const snippet = $from.node(snippetDepth)
+                        const snippetStart = $from.before(snippetDepth)
+                        
+                        // Find body position
+                        let bodyPos = null
+                        let offset = 1
+                        snippet.forEach(child => {
+                            if (child.type.name === 'promptSnippetTitle') {
+                                offset += child.nodeSize
+                            } else if (child.type.name === 'promptSnippetBody') {
+                                bodyPos = snippetStart + offset + 1
+                            }
+                        })
+                        
+                        if (bodyPos) {
+                            return editor.commands.setTextSelection(bodyPos)
+                        }
+                        return false
+                    },
+                    
+                    // Shift+Tab: move from body to title
+                    'Shift-Tab': ({ editor }) => {
+                        if (!editor.isActive('promptSnippet')) return false
+                        
+                        const { $from } = editor.state.selection
+                        const bodyAncestor = findAncestor($from, 'promptSnippetBody')
+                        if (!bodyAncestor) return false
+                        
+                        const snippetStart = $from.before(bodyAncestor.depth - 1)
+                        return editor.commands.setTextSelection(snippetStart + 2)
+                    },
+                    
+                    // Backspace at start of empty title: exit snippet formatting
+                    'Backspace': ({ editor }) => {
+                        if (!editor.isActive('promptSnippet')) return false
+                        
+                        const { selection, selection: { $from } } = editor.state
+                        
+                        // Only handle empty selection at start of content
+                        if (!selection.empty || $from.parentOffset !== 0) return false
+                        
+                        const titleAncestor = findAncestor($from, 'promptSnippetTitle')
+                        if (!titleAncestor) return false
+                        
+                        const snippetDepth = titleAncestor.depth - 1
+                        const snippet = $from.node(snippetDepth)
+                        
+                        // Only handle if snippet is empty
+                        if (!isPromptSnippetEmpty(snippet)) return false
+                        
+                        const listAncestor = findAncestor($from, 'promptSnippetList')
+                        if (!listAncestor) return false
+                        
+                        const { node: list, depth: listDepth } = listAncestor
+                        const listEnd = $from.after(listDepth)
+                        
+                        if (list.childCount === 1) {
+                            // Only snippet - replace list with paragraph
+                            const listStart = $from.before(listDepth)
+                            return editor.chain()
+                                .deleteRange({ from: listStart, to: listEnd })
+                                .insertContentAt(listStart, { type: 'paragraph' })
+                                .setTextSelection(listStart + 1)
+                                .run()
+                        } else {
+                            // Delete just this snippet and insert paragraph after list
+                            const snippetStart = $from.before(snippetDepth)
+                            const snippetEnd = $from.after(snippetDepth)
+                            return editor.chain()
+                                .deleteRange({ from: snippetStart, to: snippetEnd })
+                                .insertContentAt(listEnd - (snippetEnd - snippetStart), { type: 'paragraph' })
+                                .setTextSelection(listEnd - (snippetEnd - snippetStart) + 1)
+                                .run()
+                        }
+                    },
+                    
+                    // Mod+Enter: quick collapse
+                    'Mod-Enter': ({ editor }) => {
+                        if (!editor.isActive('promptSnippet')) return false
+                        return editor.commands.togglePromptSnippetExpanded()
+                    }
+                }
+            },
+            
+            // Custom node view for interactive collapsed/expanded states
+            addNodeView() {
+                return ({ node, getPos, editor }) => {
+                    const dom = document.createElement('div')
+                    
+                    function getClassName(n) {
+                        const classes = ['prompt-snippet']
+                        if (!n.attrs.expanded) classes.push('is-collapsed')
+                        if (n.attrs.completed) classes.push('is-completed')
+                        return classes.join(' ')
+                    }
+                    
+                    dom.className = getClassName(node)
+                    dom.setAttribute('data-type', 'prompt-snippet')
+                    
+                    // Helper to delete this snippet
+                    function deleteSnippet() {
+                        const pos = getPos()
+                        if (typeof pos === 'number') {
+                            const currentNode = editor.state.doc.nodeAt(pos)
+                            if (currentNode) {
+                                editor.chain()
+                                    .deleteRange({ from: pos, to: pos + currentNode.nodeSize })
+                                    .run()
+                            }
+                        }
+                    }
+                    
+                    // Checkbox (toggles completed state, like task card)
+                    const checkbox = document.createElement('div')
+                    checkbox.className = 'prompt-snippet-checkbox'
+                    checkbox.setAttribute('contenteditable', 'false')
+                    
+                    checkbox.addEventListener('mousedown', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const pos = getPos()
+                        if (typeof pos === 'number') {
+                            editor.commands.togglePromptSnippetCompleted(pos)
+                        }
+                    })
+                    
+                    // Content area (managed by TipTap)
+                    const content = document.createElement('div')
+                    content.className = 'prompt-snippet-content'
+                    
+                    // Preview area (shown when collapsed)
+                    const preview = document.createElement('div')
+                    preview.className = 'prompt-snippet-preview'
+                    
+                    // Copy feedback toast
+                    const feedback = document.createElement('div')
+                    feedback.className = 'prompt-snippet-copy-feedback'
+                    feedback.textContent = 'Copied!'
+                    
+                    // Helper to create button with icon
+                    function createButton(iconHtml, label, className = '') {
+                        const btn = document.createElement('button')
+                        btn.className = `prompt-snippet-action ${className}`.trim()
+                        btn.type = 'button'
+                        btn.innerHTML = `<span class="prompt-snippet-action-icon">${iconHtml}</span>${label}`
+                        return btn
+                    }
+                    
+                    // Actions container (positioned absolutely in top right)
+                    const actions = document.createElement('div')
+                    actions.className = 'prompt-snippet-actions'
+                    actions.setAttribute('contenteditable', 'false')
+                    
+                    const doneBtn = createButton('✓', 'Done', 'prompt-snippet-action--done')
+                    const copyBtn = createButton('⧉', 'Copy')
+                    const deleteBtn = createButton('×', 'Delete', 'prompt-snippet-action--delete')
+                    
+                    doneBtn.addEventListener('mousedown', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const pos = getPos()
+                        if (typeof pos === 'number') {
+                            const currentNode = editor.state.doc.nodeAt(pos)
+                            if (currentNode && currentNode.type.name === 'promptSnippet') {
+                                editor.view.dispatch(
+                                    editor.state.tr.setNodeMarkup(pos, undefined, {
+                                        ...currentNode.attrs,
+                                        expanded: false
+                                    })
+                                )
+                            }
+                        }
+                    })
+                    
+                    copyBtn.addEventListener('mousedown', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const pos = getPos()
+                        if (typeof pos === 'number') {
+                            const currentNode = editor.state.doc.nodeAt(pos)
+                            if (currentNode && currentNode.type.name === 'promptSnippet') {
+                                let bodyText = ''
+                                currentNode.forEach(child => {
+                                    if (child.type.name === 'promptSnippetBody') {
+                                        bodyText = child.textContent
+                                    }
+                                })
+                                if (bodyText) {
+                                    navigator.clipboard.writeText(bodyText)
+                                    feedback.classList.add('visible')
+                                    setTimeout(() => feedback.classList.remove('visible'), 1500)
+                                }
+                            }
+                        }
+                    })
+                    
+                    deleteBtn.addEventListener('mousedown', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        deleteSnippet()
+                    })
+                    
+                    actions.appendChild(doneBtn)
+                    actions.appendChild(copyBtn)
+                    actions.appendChild(deleteBtn)
+                    
+                    // Right-click context menu for delete
+                    dom.addEventListener('contextmenu', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        
+                        // Remove any existing context menu
+                        const existingMenu = document.querySelector('.prompt-snippet-context-menu')
+                        if (existingMenu) existingMenu.remove()
+                        
+                        const menu = document.createElement('div')
+                        menu.className = 'prompt-snippet-context-menu'
+                        menu.style.cssText = `
+                            position: fixed;
+                            left: ${e.clientX}px;
+                            top: ${e.clientY}px;
+                            background: var(--writa-card-bg, #fff);
+                            border: 1px solid var(--writa-border-color, rgba(128,128,128,0.2));
+                            border-radius: 8px;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                            padding: 4px;
+                            z-index: 1000;
+                        `
+                        
+                        const deleteOption = document.createElement('button')
+                        deleteOption.style.cssText = `
+                            display: block;
+                            width: 100%;
+                            padding: 8px 16px;
+                            border: none;
+                            background: transparent;
+                            color: #FF3B30;
+                            font-size: 13px;
+                            text-align: left;
+                            cursor: pointer;
+                            border-radius: 4px;
+                        `
+                        deleteOption.textContent = 'Delete Snippet'
+                        deleteOption.addEventListener('mouseenter', () => {
+                            deleteOption.style.background = 'rgba(255,59,48,0.1)'
+                        })
+                        deleteOption.addEventListener('mouseleave', () => {
+                            deleteOption.style.background = 'transparent'
+                        })
+                        deleteOption.addEventListener('click', () => {
+                            menu.remove()
+                            deleteSnippet()
+                        })
+                        
+                        menu.appendChild(deleteOption)
+                        document.body.appendChild(menu)
+                        
+                        // Close menu on click outside
+                        const closeMenu = (evt) => {
+                            if (!menu.contains(evt.target)) {
+                                menu.remove()
+                                document.removeEventListener('mousedown', closeMenu)
+                            }
+                        }
+                        setTimeout(() => document.addEventListener('mousedown', closeMenu), 0)
+                    })
+                    
+                    // Preview actions (for collapsed state)
+                    const previewActions = document.createElement('div')
+                    previewActions.className = 'prompt-snippet-preview-actions'
+                    previewActions.setAttribute('contenteditable', 'false')
+                    
+                    const editBtn = createButton('✎', 'Edit')
+                    const previewCopyBtn = createButton('⧉', 'Copy')
+                    
+                    editBtn.addEventListener('mousedown', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const pos = getPos()
+                        if (typeof pos === 'number') {
+                            editor.commands.expandPromptSnippetAt(pos)
+                        }
+                    })
+                    
+                    previewCopyBtn.addEventListener('mousedown', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const pos = getPos()
+                        if (typeof pos === 'number') {
+                            const currentNode = editor.state.doc.nodeAt(pos)
+                            if (currentNode && currentNode.type.name === 'promptSnippet') {
+                                let bodyText = ''
+                                currentNode.forEach(child => {
+                                    if (child.type.name === 'promptSnippetBody') {
+                                        bodyText = child.textContent
+                                    }
+                                })
+                                if (bodyText) {
+                                    navigator.clipboard.writeText(bodyText)
+                                    feedback.classList.add('visible')
+                                    setTimeout(() => feedback.classList.remove('visible'), 1500)
+                                }
+                            }
+                        }
+                    })
+                    
+                    previewActions.appendChild(editBtn)
+                    previewActions.appendChild(previewCopyBtn)
+                    
+                    // Click handler for collapsed state - copy to clipboard
+                    dom.addEventListener('click', (e) => {
+                        const pos = getPos()
+                        if (typeof pos !== 'number') return
+                        
+                        const currentNode = editor.state.doc.nodeAt(pos)
+                        if (!currentNode || currentNode.type.name !== 'promptSnippet') return
+                        
+                        // Only handle clicks when collapsed and not on buttons
+                        if (!currentNode.attrs.expanded && !e.target.closest('.prompt-snippet-action')) {
+                            let bodyText = ''
+                            currentNode.forEach(child => {
+                                if (child.type.name === 'promptSnippetBody') {
+                                    bodyText = child.textContent
+                                }
+                            })
+                            
+                            if (bodyText) {
+                                navigator.clipboard.writeText(bodyText)
+                                feedback.classList.add('visible')
+                                setTimeout(() => feedback.classList.remove('visible'), 1500)
+                            }
+                        }
+                    })
+                    
+                    // Build preview content
+                    function updatePreview(snippetNode) {
+                        let titleText = ''
+                        let bodyText = ''
+                        snippetNode.forEach(child => {
+                            if (child.type.name === 'promptSnippetTitle') {
+                                titleText = child.textContent
+                            } else if (child.type.name === 'promptSnippetBody') {
+                                bodyText = child.textContent
+                            }
+                        })
+                        
+                        preview.innerHTML = ''
+                        
+                        const previewTitle = document.createElement('div')
+                        previewTitle.className = 'prompt-snippet-preview-title'
+                        previewTitle.textContent = titleText || 'Untitled Snippet'
+                        
+                        const previewBody = document.createElement('div')
+                        previewBody.className = 'prompt-snippet-preview-body'
+                        previewBody.textContent = bodyText.length > 150 
+                            ? bodyText.substring(0, 150) + '...' 
+                            : bodyText || 'Empty snippet'
+                        
+                        preview.appendChild(previewTitle)
+                        preview.appendChild(previewBody)
+                    }
+                    
+                    updatePreview(node)
+                    
+                    dom.appendChild(checkbox)
+                    dom.appendChild(content)
+                    dom.appendChild(preview)
+                    dom.appendChild(actions)
+                    dom.appendChild(previewActions)
+                    dom.appendChild(feedback)
+                    
+                    return {
+                        dom,
+                        contentDOM: content,
+                        update: (updatedNode) => {
+                            if (updatedNode.type.name !== 'promptSnippet') return false
+                            
+                            dom.className = getClassName(updatedNode)
+                            
+                            updatePreview(updatedNode)
+                            
+                            return true
+                        }
+                    }
+                }
+            }
+        })
+        
+        // PromptSnippetTitle
+        const PromptSnippetTitle = Node.create({
+            name: 'promptSnippetTitle',
+            group: 'block',
+            content: 'inline*',
+            defining: true,
+            
+            parseHTML() {
+                return [{ tag: 'div[data-type="prompt-snippet-title"]' }]
+            },
+            
+            renderHTML({ HTMLAttributes }) {
+                return ['div', mergeAttributes(HTMLAttributes, { 
+                    'data-type': 'prompt-snippet-title',
+                    'class': 'prompt-snippet-title'
+                }), 0]
+            }
+        })
+        
+        // PromptSnippetBody
+        const PromptSnippetBody = Node.create({
+            name: 'promptSnippetBody',
+            group: 'block',
+            content: 'inline*',
+            
+            parseHTML() {
+                return [{ tag: 'div[data-type="prompt-snippet-body"]' }]
+            },
+            
+            renderHTML({ HTMLAttributes }) {
+                return ['div', mergeAttributes(HTMLAttributes, { 
+                    'data-type': 'prompt-snippet-body',
+                    'class': 'prompt-snippet-body'
+                }), 0]
+            }
+        })
+        
+        // ============================================
         // Editor Setup
         // ============================================
         
@@ -667,7 +1606,36 @@
                 isOrderedList: e.isActive('orderedList'),
                 isTaskList: e.isActive('taskList'),
                 isTaskCard: e.isActive('taskCard'),
-                isHighlight: e.isActive('highlight'),
+                isPromptSnippet: e.isActive('promptSnippet'),
+                isHighlight: (() => {
+                    // Use TipTap's built-in isActive for marks - it handles cursor position correctly
+                    return e.isActive('highlight');
+                })(),
+                highlightColor: (() => {
+                    const { state } = editor;
+                    const { $from, $to } = state.selection;
+                    let color = '#fef08a'; // Default yellow
+                    
+                    // Get marks at the start of selection
+                    const marks = $from.marks();
+                    const highlightMark = marks.find(mark => mark.type.name === 'highlight');
+                    if (highlightMark && highlightMark.attrs.color) {
+                        color = highlightMark.attrs.color;
+                    } else {
+                        // Fallback: check nodes in selection
+                        state.doc.nodesBetween($from.pos, $to.pos, (node) => {
+                            if (node.marks) {
+                                const mark = node.marks.find(m => m.type.name === 'highlight');
+                                if (mark && mark.attrs.color) {
+                                    color = mark.attrs.color;
+                                    return false; // Stop searching
+                                }
+                            }
+                        });
+                    }
+                    
+                    return color;
+                })(),
                 isSubscript: e.isActive('subscript'),
                 isSuperscript: e.isActive('superscript'),
                 headingLevel: e.isActive('heading', { level: 1 }) ? 1 : 
@@ -743,8 +1711,8 @@
                             // getBoundingClientRect() returns viewport coordinates, which matches position: fixed
                             const cardRect = focusedCard.getBoundingClientRect();
                             
-                            actionBar.style.top = (cardRect.bottom - 26) + 'px';
-                            actionBar.style.right = (window.innerWidth - cardRect.right + 10) + 'px';
+                            actionBar.style.top = (cardRect.bottom - 20) + 'px';
+                            actionBar.style.right = (window.innerWidth - cardRect.right + 12) + 'px';
                             actionBar.classList.add('visible');
                             
                             // Store the current task card position for button actions
@@ -782,6 +1750,8 @@
                         placeholder: ({ node }) => {
                             if (node.type.name === 'taskCardTitle') return 'What needs to be done?'
                             if (node.type.name === 'taskCardDescription') return 'Add notes...'
+                            if (node.type.name === 'promptSnippetTitle') return 'Snippet title...'
+                            if (node.type.name === 'promptSnippetBody') return 'Write your prompt here...'
                             return 'Start writing...'
                         },
                         includeChildren: true,
@@ -798,6 +1768,10 @@
                     TaskCard,
                     TaskCardTitle,
                     TaskCardDescription,
+                    PromptSnippetList,
+                    PromptSnippet,
+                    PromptSnippetTitle,
+                    PromptSnippetBody,
                     Image.configure({
                         HTMLAttributes: { class: 'image' }
                     }),
@@ -805,7 +1779,7 @@
                     TableRow,
                     TableHeader,
                     TableCell,
-                    Highlight.configure({ multicolor: false }),
+                    Highlight.configure({ multicolor: true }),
                     TextAlign.configure({ types: ['heading', 'paragraph'] }),
                     Subscript,
                     Superscript,
@@ -853,6 +1827,23 @@
                 toggleStrike: () => editor.chain().focus().toggleStrike().run(),
                 toggleCode: () => editor.chain().focus().toggleCode().run(),
                 toggleHighlight: () => editor.chain().focus().toggleHighlight().run(),
+                setHighlightColor: (color) => editor.chain().focus().toggleHighlight({ color }).run(),
+                getHighlightColor: () => {
+                    const { state } = editor;
+                    const { from, to } = state.selection;
+                    let highlightColor = '#fef08a'; // Default yellow
+                    
+                    state.doc.nodesBetween(from, to, (node, pos) => {
+                        if (node.marks) {
+                            const highlightMark = node.marks.find(mark => mark.type.name === 'highlight');
+                            if (highlightMark && highlightMark.attrs.color) {
+                                highlightColor = highlightMark.attrs.color;
+                            }
+                        }
+                    });
+                    
+                    return highlightColor;
+                },
                 toggleSubscript: () => editor.chain().focus().toggleSubscript().run(),
                 toggleSuperscript: () => editor.chain().focus().toggleSuperscript().run(),
                 
@@ -871,6 +1862,43 @@
                 toggleTaskCard: () => editor.commands.insertTaskCard(),
                 insertTaskCard: () => editor.commands.insertTaskCard(),
                 toggleTaskCardChecked: () => editor.commands.toggleTaskCardChecked(),
+                
+                // Prompt Snippet commands
+                insertPromptSnippet: () => editor.commands.insertPromptSnippet(),
+                togglePromptSnippet: () => editor.commands.insertPromptSnippet(),
+                togglePromptSnippetExpanded: () => editor.commands.togglePromptSnippetExpanded(),
+                copyPromptSnippet: () => editor.commands.copyPromptSnippet(),
+                
+                // Set a specific task's checked state by node index (for sync from Tasks view)
+                setTaskChecked: (nodeIndex, checked) => {
+                    const { doc, tr } = editor.state;
+                    let currentIndex = 0;
+                    let found = false;
+                    
+                    doc.descendants((node, pos) => {
+                        if (found) return false;  // Stop traversal once found
+                        if (node.type.name === 'taskCard') {
+                            if (currentIndex === nodeIndex) {
+                                // Found the task - update its checked attribute
+                                tr.setNodeMarkup(pos, undefined, {
+                                    ...node.attrs,
+                                    checked: checked
+                                });
+                                found = true;
+                                return false;
+                            }
+                            currentIndex++;
+                        }
+                        return true;  // Continue traversal
+                    });
+                    
+                    if (found) {
+                        editor.view.dispatch(tr);
+                        sendToSwift({ type: 'debug', message: `Task ${nodeIndex} set to checked=${checked}` });
+                    } else {
+                        sendToSwift({ type: 'debug', message: `Task ${nodeIndex} not found` });
+                    }
+                },
                 
                 toggleBlockquote: () => editor.chain().focus().toggleBlockquote().run(),
                 toggleCodeBlock: () => editor.chain().focus().toggleCodeBlock().run(),

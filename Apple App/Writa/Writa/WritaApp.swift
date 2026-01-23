@@ -242,15 +242,11 @@ struct WritaCommands: Commands {
             
             Divider()
             
-            Menu("Prompt Snippet") {
-                Button("Insert Snippet...") {
-                    // Open snippet picker
-                }
-                
-                Button("Browse Snippets...") {
-                    // Open snippet library
-                }
+            Button("Insert Prompt Snippet") {
+                // Insert prompt snippet via editor bridge
+                NotificationCenter.default.post(name: NSNotification.Name("InsertPromptSnippet"), object: nil)
             }
+            .keyboardShortcut("p", modifiers: [.command, .option])
         }
         
         // MARK: - Help Menu

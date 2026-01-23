@@ -35,20 +35,30 @@ struct SidebarView: View {
     @Query(filter: #Predicate<Document> { $0.isDeleted == true })
     private var trashedDocuments: [Document]
     
+    @Query(filter: #Predicate<Document> { $0.isDeleted == false })
+    private var activeDocuments: [Document]
+    
     @Binding var selection: SidebarItemType?
     @Binding var shouldCreateWorkspace: Bool
     
     // Track newly created workspace for auto-rename
     @State private var newlyCreatedWorkspaceID: UUID?
     
-    // MARK: - Static Items
+    // MARK: - Computed Items
     
-    private let libraryItems: [SidebarItem] = [
-        .allDocuments,
-        .inbox,
-        .favorites,
-        .recent
-    ]
+    private var totalIncompleteTaskCount: Int {
+        activeDocuments.reduce(0) { $0 + $1.incompleteTaskCount }
+    }
+    
+    private var tasksItem: SidebarItem {
+        SidebarItem(
+            type: .tasks,
+            title: "Tasks",
+            icon: "checkmark.circle",
+            iconColor: .blue,
+            badge: totalIncompleteTaskCount > 0 ? totalIncompleteTaskCount : nil
+        )
+    }
     
     private var trashItem: SidebarItem {
         .trash(count: trashedDocuments.count)
@@ -58,10 +68,17 @@ struct SidebarView: View {
         List(selection: $selection) {
             // MARK: - Library Section (Static)
             Section("Library") {
-                ForEach(libraryItems) { item in
-                    SidebarItemRow(item: item)
-                        .tag(item.type)
-                }
+                SidebarItemRow(item: .allDocuments)
+                    .tag(SidebarItemType.allDocuments)
+                
+                SidebarItemRow(item: tasksItem)
+                    .tag(SidebarItemType.tasks)
+                
+                SidebarItemRow(item: .favorites)
+                    .tag(SidebarItemType.favorites)
+                
+                SidebarItemRow(item: .recent)
+                    .tag(SidebarItemType.recent)
                 
                 SidebarItemRow(item: trashItem)
                     .tag(SidebarItemType.trash)
