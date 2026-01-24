@@ -107,6 +107,9 @@ struct SidebarView: View {
                             newlyCreatedWorkspaceID: $newlyCreatedWorkspaceID
                         )
                     }
+                    .onMove { source, destination in
+                        moveRootWorkspaces(from: source, to: destination)
+                    }
                 }
             }
             
@@ -147,6 +150,24 @@ struct SidebarView: View {
         
         modelContext.insert(workspace)
         newlyCreatedWorkspaceID = workspace.id
+    }
+    
+    private func moveRootWorkspaces(from source: IndexSet, to destination: Int) {
+        // Create a mutable copy of the workspaces array
+        var workspaces = Array(rootWorkspaces)
+        workspaces.move(fromOffsets: source, toOffset: destination)
+        
+        // Update sortOrder for all workspaces
+        for (index, workspace) in workspaces.enumerated() {
+            workspace.sortOrder = index
+            workspace.updatedAt = Date()
+        }
+        
+        // Save changes
+        try? modelContext.save()
+        
+        // Trigger auto-sync
+        NotificationCenter.default.post(name: Notification.Name("WorkspaceDidChange"), object: nil)
     }
     
 }
@@ -193,6 +214,9 @@ struct WorkspaceRow: View {
                         selection: $selection,
                         newlyCreatedWorkspaceID: $newlyCreatedWorkspaceID
                     )
+                }
+                .onMove { source, destination in
+                    moveChildWorkspaces(from: source, to: destination)
                 }
             } label: {
                 workspaceContent
@@ -328,6 +352,12 @@ struct WorkspaceRow: View {
         let temp = workspace.sortOrder
         workspace.sortOrder = other.sortOrder
         other.sortOrder = temp
+        // Update timestamps so sync detects the change
+        workspace.updatedAt = Date()
+        other.updatedAt = Date()
+        
+        // Trigger auto-sync
+        NotificationCenter.default.post(name: Notification.Name("WorkspaceDidChange"), object: nil)
     }
     
     private func moveDown() {
@@ -336,6 +366,12 @@ struct WorkspaceRow: View {
         let temp = workspace.sortOrder
         workspace.sortOrder = other.sortOrder
         other.sortOrder = temp
+        // Update timestamps so sync detects the change
+        workspace.updatedAt = Date()
+        other.updatedAt = Date()
+        
+        // Trigger auto-sync
+        NotificationCenter.default.post(name: Notification.Name("WorkspaceDidChange"), object: nil)
     }
     
     @ViewBuilder
@@ -427,6 +463,21 @@ struct WorkspaceRow: View {
         let rootCount = allWorkspaces.filter { $0.parent == nil }.count
         workspace.sortOrder = rootCount
         workspace.updatedAt = Date()
+    }
+    
+    private func moveChildWorkspaces(from source: IndexSet, to destination: Int) {
+        // Get the sorted children array and move
+        var children = workspace.sortedChildren
+        children.move(fromOffsets: source, toOffset: destination)
+        
+        // Update sortOrder for all children
+        for (index, child) in children.enumerated() {
+            child.sortOrder = index
+            child.updatedAt = Date()
+        }
+        
+        // Trigger auto-sync
+        NotificationCenter.default.post(name: Notification.Name("WorkspaceDidChange"), object: nil)
     }
     
     private func deleteWorkspace() {

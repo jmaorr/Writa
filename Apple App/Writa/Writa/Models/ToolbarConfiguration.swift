@@ -186,7 +186,7 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
         case .codeBlock: return "⌘⌥C"
         case .image: return "⌘⇧I"
         case .link: return "⌘K"
-        case .promptSnippet: return "⌘⌥P"
+        case .promptSnippet: return "⌘⇧P"
         default: return nil
         }
     }

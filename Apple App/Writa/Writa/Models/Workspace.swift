@@ -31,6 +31,12 @@ final class Workspace {
     var updatedAt: Date
     var isExpanded: Bool  // UI state for sidebar
     
+    // Sync status (defaults required for migration)
+    var serverVersion: Int = 0
+    var isDirty: Bool = false
+    var lastSyncedAt: Date?
+    var serverId: String?  // Remote ID for cloud sync
+    
     init(
         name: String,
         icon: String = "folder",
@@ -48,6 +54,10 @@ final class Workspace {
         self.createdAt = Date()
         self.updatedAt = Date()
         self.isExpanded = true
+        self.serverVersion = 0
+        self.isDirty = false
+        self.lastSyncedAt = nil
+        self.serverId = nil
     }
 }
 
@@ -86,5 +96,10 @@ extension Workspace {
     /// Sorted children for display
     var sortedChildren: [Workspace] {
         children.sorted { $0.sortOrder < $1.sortOrder }
+    }
+    
+    /// Whether the workspace needs to be synced to the server
+    var needsSync: Bool {
+        isDirty || lastSyncedAt == nil
     }
 }

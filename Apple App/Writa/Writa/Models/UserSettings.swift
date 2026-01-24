@@ -157,6 +157,22 @@ class SettingsManager {
             print("☁️ Keeping local settings (newer)")
         }
     }
+    
+    /// Export settings to dictionary for API sync
+    func exportToJSON() -> [String: Any] {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .millisecondsSince1970
+        
+        guard let data = try? encoder.encode(settings),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return [:]
+        }
+        
+        return dict
+    }
+    
+    /// Shared singleton instance
+    static let shared = SettingsManager()
 }
 
 // MARK: - Environment Key

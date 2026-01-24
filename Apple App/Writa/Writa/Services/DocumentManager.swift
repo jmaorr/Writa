@@ -58,11 +58,14 @@ class DocumentManager {
         }
         
         document.updatedAt = Date()
-        document.isDirty = false
+        document.isDirty = true  // Mark as needing sync (will be set to false after successful sync)
         
         do {
             try context.save()
-            print("✅ Saved document: \(document.displayTitle) (isDeleted: \(document.isDeleted))")
+            print("✅ Saved document: \(document.displayTitle) (isDirty: \(document.isDirty))")
+            
+            // Trigger auto-sync
+            NotificationCenter.default.post(name: Notification.Name("DocumentDidSave"), object: nil)
         } catch {
             print("❌ Failed to save document: \(error)")
         }
@@ -209,6 +212,314 @@ class DocumentManager {
         } catch {
             return []
         }
+    }
+    
+    // MARK: - Workspace Operations
+    
+    /// Create a new workspace
+    @discardableResult
+    func createWorkspace(
+        name: String,
+        icon: String = "folder",
+        color: String = "systemBlue",
+        parent: Workspace? = nil
+    ) -> Workspace? {
+        guard let context = modelContext else {
+            print("❌ DocumentManager: No model context configured")
+            return nil
+        }
+        
+        let workspace = Workspace(name: name, icon: icon, color: color, parent: parent)
+        workspace.isDirty = true
+        context.insert(workspace)
+        
+        do {
+            try context.save()
+            print("✅ Created workspace: \(workspace.id)")
+            return workspace
+        } catch {
+            print("❌ Failed to create workspace: \(error)")
+            return nil
+        }
+    }
+    
+    /// Save a workspace (explicit save)
+    func save(_ workspace: Workspace) {
+        guard let context = modelContext else {
+            print("❌ DocumentManager.save: No model context configured!")
+            return
+        }
+        
+        workspace.updatedAt = Date()
+        workspace.isDirty = true
+        
+        do {
+            try context.save()
+            print("✅ Saved workspace: \(workspace.name)")
+            
+            // Trigger auto-sync
+            NotificationCenter.default.post(name: Notification.Name("WorkspaceDidChange"), object: nil)
+        } catch {
+            print("❌ Failed to save workspace: \(error)")
+        }
+    }
+    
+    /// Delete a workspace (moves documents to no workspace)
+    func deleteWorkspace(_ workspace: Workspace) {
+        guard let context = modelContext else { return }
+        
+        let name = workspace.name
+        
+        // Move all documents out of this workspace before deletion
+        for document in workspace.documents {
+            document.workspace = nil
+            document.isDirty = true
+        }
+        
+        // Move children to parent (or make them root)
+        for child in workspace.children {
+            child.parent = workspace.parent
+            child.isDirty = true
+        }
+        
+        context.delete(workspace)
+        
+        do {
+            try context.save()
+            print("🗑️ Deleted workspace: \(name)")
+        } catch {
+            print("❌ Failed to delete workspace: \(error)")
+        }
+    }
+    
+    /// Get all workspaces
+    func getAllWorkspaces() -> [Workspace] {
+        guard let context = modelContext else { return [] }
+        let descriptor = FetchDescriptor<Workspace>()
+        return (try? context.fetch(descriptor)) ?? []
+    }
+    
+    /// Get all workspaces that need syncing (dirty flag for push)
+    func workspacesNeedingSync() -> [Workspace] {
+        guard let context = modelContext else { return [] }
+        let descriptor = FetchDescriptor<Workspace>(
+            predicate: #Predicate { $0.isDirty == true }
+        )
+        return (try? context.fetch(descriptor)) ?? []
+    }
+    
+    /// Find workspace by ID string
+    func findWorkspace(byId id: String) -> Workspace? {
+        guard let context = modelContext,
+              let uuid = UUID(uuidString: id) else { return nil }
+        let descriptor = FetchDescriptor<Workspace>(
+            predicate: #Predicate { $0.id == uuid }
+        )
+        return try? context.fetch(descriptor).first
+    }
+    
+    /// Find document by ID string
+    func findDocument(byId id: String) -> Document? {
+        guard let context = modelContext,
+              let uuid = UUID(uuidString: id) else { return nil }
+        let descriptor = FetchDescriptor<Document>(
+            predicate: #Predicate { $0.id == uuid }
+        )
+        return try? context.fetch(descriptor).first
+    }
+    
+    /// Mark workspace as synced
+    func markWorkspaceSynced(_ workspace: Workspace, serverVersion: Int? = nil) {
+        workspace.isDirty = false
+        workspace.lastSyncedAt = Date()
+        if let version = serverVersion {
+            workspace.serverVersion = version
+        }
+        saveAll()
+    }
+    
+    /// Mark document as synced
+    func markDocumentSynced(_ document: Document, serverVersion: Int? = nil) {
+        document.isDirty = false
+        document.lastSyncedAt = Date()
+        if let version = serverVersion {
+            document.serverVersion = version
+        }
+        saveAll()
+    }
+    
+    /// Mark all unsynced items as dirty (for initial sync)
+    func markAllForSync() {
+        guard let context = modelContext else { return }
+        
+        // Mark all documents that have never synced
+        let docDescriptor = FetchDescriptor<Document>(
+            predicate: #Predicate { $0.lastSyncedAt == nil && $0.isDeleted == false }
+        )
+        if let docs = try? context.fetch(docDescriptor) {
+            for doc in docs {
+                doc.isDirty = true
+            }
+            print("📄 Marked \(docs.count) documents for sync")
+        }
+        
+        // Mark all workspaces that have never synced
+        let wsDescriptor = FetchDescriptor<Workspace>(
+            predicate: #Predicate { $0.lastSyncedAt == nil }
+        )
+        if let workspaces = try? context.fetch(wsDescriptor) {
+            for ws in workspaces {
+                ws.isDirty = true
+            }
+            print("📂 Marked \(workspaces.count) workspaces for sync")
+        }
+        
+        saveAll()
+    }
+    
+    // MARK: - Server Sync Helpers
+    
+    /// Update local workspace from server data
+    func updateWorkspaceFromServer(_ workspace: Workspace, with serverData: WorkspaceDTO) {
+        workspace.name = serverData.name
+        workspace.icon = serverData.icon
+        workspace.color = serverData.color
+        workspace.sortOrder = serverData.sortOrder
+        workspace.isExpanded = serverData.isExpanded
+        workspace.serverVersion = serverData.version
+        workspace.updatedAt = serverData.updatedAt
+        workspace.lastSyncedAt = Date()
+        workspace.isDirty = false
+        
+        // Handle parent relationship
+        if let parentId = serverData.parentId {
+            workspace.parent = findWorkspace(byId: parentId)
+        } else {
+            workspace.parent = nil
+        }
+        
+        saveAll()
+    }
+    
+    /// Create local workspace from server data
+    func createWorkspaceFromServer(_ serverData: WorkspaceDTO) {
+        guard let context = modelContext,
+              let uuid = UUID(uuidString: serverData.id) else { return }
+        
+        let workspace = Workspace(name: serverData.name, icon: serverData.icon, color: serverData.color)
+        workspace.id = uuid
+        workspace.sortOrder = serverData.sortOrder
+        workspace.isExpanded = serverData.isExpanded
+        workspace.serverVersion = serverData.version
+        workspace.createdAt = serverData.createdAt
+        workspace.updatedAt = serverData.updatedAt
+        workspace.lastSyncedAt = Date()
+        workspace.isDirty = false
+        workspace.serverId = serverData.id
+        
+        // Handle parent relationship
+        if let parentId = serverData.parentId {
+            workspace.parent = findWorkspace(byId: parentId)
+        }
+        
+        context.insert(workspace)
+        saveAll()
+    }
+    
+    /// Update local document from server data
+    func updateDocumentFromServer(_ document: Document, with serverData: DocumentDTO) {
+        document.title = serverData.title
+        document.summary = serverData.summary ?? ""
+        document.plainText = serverData.plainText ?? ""
+        document.wordCount = serverData.wordCount
+        document.tags = serverData.tags ?? []
+        document.isFavorite = serverData.isFavorite
+        document.isPinned = serverData.isPinned
+        document.isDeleted = serverData.isDeleted
+        document.deletedAt = serverData.deletedAt
+        document.serverVersion = serverData.version
+        document.updatedAt = serverData.updatedAt
+        document.lastSyncedAt = Date()
+        document.isDirty = false
+        
+        // Update content if provided
+        if let contentString = serverData.content {
+            document.content = contentString.data(using: .utf8)
+        }
+        
+        // Handle workspace relationship
+        if let workspaceId = serverData.workspaceId {
+            document.workspace = findWorkspace(byId: workspaceId)
+        } else {
+            document.workspace = nil
+        }
+        
+        saveAll()
+    }
+    
+    /// Create local document from server data
+    func createDocumentFromServer(_ serverData: DocumentDTO) {
+        guard let context = modelContext,
+              let uuid = UUID(uuidString: serverData.id) else { return }
+        
+        let document = Document()
+        document.id = uuid
+        document.title = serverData.title
+        document.summary = serverData.summary ?? ""
+        document.plainText = serverData.plainText ?? ""
+        document.wordCount = serverData.wordCount
+        document.tags = serverData.tags ?? []
+        document.isFavorite = serverData.isFavorite
+        document.isPinned = serverData.isPinned
+        document.isDeleted = serverData.isDeleted
+        document.deletedAt = serverData.deletedAt
+        document.serverVersion = serverData.version
+        document.createdAt = serverData.createdAt
+        document.updatedAt = serverData.updatedAt
+        document.lastSyncedAt = Date()
+        document.isDirty = false
+        document.serverId = serverData.id
+        
+        // Set content if provided
+        if let contentString = serverData.content {
+            document.content = contentString.data(using: .utf8)
+        }
+        
+        // Handle workspace relationship
+        if let workspaceId = serverData.workspaceId {
+            document.workspace = findWorkspace(byId: workspaceId)
+        }
+        
+        context.insert(document)
+        saveAll()
+    }
+    
+    /// Update workspace order (triggers sync)
+    func updateWorkspaceOrder(_ workspaces: [Workspace]) {
+        for (index, workspace) in workspaces.enumerated() {
+            workspace.sortOrder = index
+            workspace.updatedAt = Date()  // Important: update timestamp for sync comparison
+        }
+        saveAll()
+    }
+    
+    /// Move document to workspace (marks both as dirty)
+    func moveDocument(_ document: Document, to workspace: Workspace?) {
+        let oldWorkspace = document.workspace
+        document.workspace = workspace
+        document.isDirty = true
+        
+        // Mark old workspace as dirty if it exists
+        if let old = oldWorkspace {
+            old.isDirty = true
+        }
+        
+        // Mark new workspace as dirty if it exists
+        if let new = workspace {
+            new.isDirty = true
+        }
+        
+        save(document)
     }
 }
 

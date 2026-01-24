@@ -385,42 +385,160 @@ struct EditorSettingsView: View {
 // MARK: - Account Settings
 
 struct AccountSettingsView: View {
+    @Environment(\.authManager) private var authManager
+    @State private var showingAuthSheet = false
+    @State private var showingDeleteConfirm = false
+    @State private var isSigningOut = false
+    
     var body: some View {
         Form {
-            Section {
-                VStack(spacing: 16) {
-                    Image(systemName: "person.circle.fill")
-                        .font(.system(size: 64))
-                        .foregroundStyle(.tertiary)
-                    
-                    Text("Not signed in")
-                        .font(.headline)
-                    
-                    Text("Sign in to sync your documents across devices and access community content.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 300)
-                    
-                    Button("Sign In") {
-                        // Sign in action
+            if authManager.isAuthenticated, let user = authManager.currentUser {
+                // Signed in view
+                Section("Profile") {
+                    HStack(spacing: 16) {
+                        // Avatar
+                        Group {
+                            if let photoURL = user.photoURL {
+                                AsyncImage(url: photoURL) { image in
+                                    image.resizable().scaledToFill()
+                                } placeholder: {
+                                    Image(systemName: "person.circle.fill")
+                                        .font(.system(size: 48))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .frame(width: 64, height: 64)
+                                .clipShape(Circle())
+                            } else {
+                                Image(systemName: "person.circle.fill")
+                                    .font(.system(size: 48))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(user.displayName ?? "User")
+                                .font(.headline)
+                            Text(user.email)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .padding(.vertical, 8)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 32)
+                
+                Section("Subscription") {
+                    HStack {
+                        Text("Plan")
+                        Spacer()
+                        Text(user.subscription.displayName)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Member since")
+                        Spacer()
+                        Text(user.createdAt.formatted(date: .abbreviated, time: .omitted))
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    if user.subscription == .free {
+                        Button("Upgrade to Pro") {
+                            // Show upgrade flow
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+                
+                Section {
+                    Button("Sign Out") {
+                        signOut()
+                    }
+                    .disabled(isSigningOut)
+                    
+                    Button("Delete Account", role: .destructive) {
+                        showingDeleteConfirm = true
+                    }
+                }
+            } else {
+                // Signed out view
+                Section {
+                    VStack(spacing: 16) {
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 64))
+                            .foregroundStyle(.tertiary)
+                        
+                        Text("Not signed in")
+                            .font(.headline)
+                        
+                        Text("Sign in to sync your documents across devices and access community content.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 300)
+                        
+                        Button("Sign In") {
+                            showingAuthSheet = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                }
             }
         }
         .formStyle(.grouped)
         .padding()
+        .sheet(isPresented: $showingAuthSheet) {
+            AuthContainerView()
+        }
+        .alert("Delete Account", isPresented: $showingDeleteConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                deleteAccount()
+            }
+        } message: {
+            Text("Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.")
+        }
+    }
+    
+    private func signOut() {
+        isSigningOut = true
+        Task {
+            do {
+                try await authManager.signOut()
+            } catch {
+                print("Sign out error: \(error)")
+            }
+            await MainActor.run {
+                isSigningOut = false
+            }
+        }
+    }
+    
+    private func deleteAccount() {
+        Task {
+            do {
+                try await authManager.deleteAccount()
+            } catch {
+                print("Delete account error: \(error)")
+            }
+        }
     }
 }
 
 // MARK: - Sync Settings
 
 struct SyncSettingsView: View {
+    @Environment(\.syncService) private var syncService
+    @Environment(\.authManager) private var authManager
+    @Environment(\.documentManager) private var documentManager
+    
     @AppStorage("syncEnabled") private var syncEnabled = true
     @AppStorage("syncOnWifi") private var syncOnWifi = false
+    
+    private let offlineQueue = OfflineQueue.shared
     
     var body: some View {
         Form {
@@ -431,15 +549,37 @@ struct SyncSettingsView: View {
             
             Section("Status") {
                 HStack {
-                    Circle()
-                        .fill(.green)
-                        .frame(width: 8, height: 8)
-                    Text("All documents synced")
-                        .foregroundStyle(.secondary)
+                    statusIndicator
+                    statusText
                     Spacer()
-                    Text("Last sync: Just now")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                    if let lastSync = syncService?.lastSyncDate {
+                        Text("Last: \(lastSync.formatted(.relative(presentation: .named)))")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                
+                // Network status
+                HStack {
+                    Text("Network")
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(offlineQueue.isOnline ? .green : .red)
+                            .frame(width: 8, height: 8)
+                        Text(offlineQueue.isOnline ? "Online" : "Offline")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                // Pending operations
+                if offlineQueue.hasPendingOperations {
+                    HStack {
+                        Text("Pending operations")
+                        Spacer()
+                        Text("\(offlineQueue.pendingCount)")
+                            .foregroundStyle(.orange)
+                    }
                 }
             }
             
@@ -449,23 +589,139 @@ struct SyncSettingsView: View {
                 HStack {
                     Text("Offline storage used")
                     Spacer()
-                    Text("12.4 MB")
+                    Text(calculateStorageUsed())
                         .foregroundStyle(.secondary)
                 }
             }
             
             Section {
-                Button("Sync Now") {
-                    // Manual sync
+                Button {
+                    Task {
+                        await syncService?.sync()
+                    }
+                } label: {
+                    HStack {
+                        Text("Sync Now")
+                        if syncService?.isSyncing == true {
+                            Spacer()
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    }
+                }
+                .disabled(syncService?.isSyncing == true || !authManager.isAuthenticated)
+                
+                Button {
+                    // Mark all unsynced items as dirty and sync
+                    documentManager.markAllForSync()
+                    Task {
+                        await syncService?.sync()
+                    }
+                } label: {
+                    Text("Force Sync All")
+                }
+                .disabled(syncService?.isSyncing == true || !authManager.isAuthenticated)
+                
+                if offlineQueue.hasPendingOperations {
+                    Button("Process Pending Operations") {
+                        Task {
+                            await offlineQueue.processQueue()
+                        }
+                    }
+                    .disabled(!offlineQueue.isOnline)
                 }
                 
                 Button("Reset Sync Data", role: .destructive) {
-                    // Reset sync
+                    resetSyncData()
+                }
+            }
+            
+            if !authManager.isAuthenticated {
+                Section {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.yellow)
+                        Text("Sign in to enable cloud sync")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
         .formStyle(.grouped)
         .padding()
+    }
+    
+    @ViewBuilder
+    private var statusIndicator: some View {
+        switch syncService?.syncStatus {
+        case .idle:
+            Circle().fill(.secondary).frame(width: 8, height: 8)
+        case .syncing:
+            Circle().fill(.blue).frame(width: 8, height: 8)
+        case .success:
+            Circle().fill(.green).frame(width: 8, height: 8)
+        case .error:
+            Circle().fill(.red).frame(width: 8, height: 8)
+        case .none:
+            Circle().fill(.gray).frame(width: 8, height: 8)
+        }
+    }
+    
+    @ViewBuilder
+    private var statusText: some View {
+        switch syncService?.syncStatus {
+        case .idle:
+            Text("Ready to sync")
+                .foregroundStyle(.secondary)
+        case .syncing:
+            Text("Syncing...")
+                .foregroundStyle(.blue)
+        case .success:
+            Text("All documents synced")
+                .foregroundStyle(.secondary)
+        case .error(let message):
+            Text("Error: \(message)")
+                .foregroundStyle(.red)
+                .lineLimit(1)
+        case .none:
+            Text("Sync unavailable")
+                .foregroundStyle(.secondary)
+        }
+    }
+    
+    private func calculateStorageUsed() -> String {
+        // Get app's document directory size
+        let fileManager = FileManager.default
+        guard let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return "Unknown"
+        }
+        
+        do {
+            let contents = try fileManager.contentsOfDirectory(at: documentsURL, includingPropertiesForKeys: [.fileSizeKey])
+            var totalSize: Int64 = 0
+            
+            for url in contents {
+                let resourceValues = try url.resourceValues(forKeys: [.fileSizeKey])
+                totalSize += Int64(resourceValues.fileSize ?? 0)
+            }
+            
+            let formatter = ByteCountFormatter()
+            formatter.countStyle = .file
+            return formatter.string(fromByteCount: totalSize)
+        } catch {
+            return "Unknown"
+        }
+    }
+    
+    private func resetSyncData() {
+        // Clear offline queue
+        offlineQueue.clearAll()
+        
+        // Reset last sync date
+        UserDefaults.standard.removeObject(forKey: "lastSyncTimestamp")
+        
+        // Note: In a full implementation, you'd also reset serverVersion on all documents
+        print("🔄 Sync data reset")
     }
 }
 

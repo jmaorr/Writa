@@ -1,0 +1,23 @@
+{
+  "name": "writa-api",
+  "version": "1.0.0",
+  "description": "Writa API - Cloudflare Workers backend for sync",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply writa-db --local",
+    "db:migrate:prod": "wrangler d1 migrations apply writa-db",
+    "db:studio": "wrangler d1 studio writa-db",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "@clerk/backend": "^1.0.0",
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "typescript": "^5.3.0",
+    "wrangler": "^3.0.0"
+  }
+}

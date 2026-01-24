@@ -296,6 +296,11 @@ struct DocumentDetailView: View {
             // Task Cards
             case ("t", true, false): webView.insertTaskCard(); return nil
             
+            // Prompt Snippets (⌘⇧P - handled by menu command, kept here as fallback)
+            case ("p", true, false): 
+                webView.insertPromptSnippet()
+                return nil
+            
             // Blocks
             case ("b", true, false): webView.toggleBlockquote(); return nil
             case ("c", false, true): webView.toggleCodeBlock(); return nil

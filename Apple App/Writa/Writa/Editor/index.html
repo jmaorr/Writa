@@ -405,6 +405,8 @@
             color: var(--writa-text-primary, #333);
             line-height: 1.4;
             padding-right: 120px; /* Space for Edit/Copy buttons */
+            pointer-events: none;
+            user-select: none;
         }
         
         .prompt-snippet-preview-body {
@@ -416,6 +418,8 @@
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
+            pointer-events: none;
+            user-select: none;
         }
         
         .prompt-snippet-preview-actions {
@@ -1053,14 +1057,45 @@
             
             addKeyboardShortcuts() {
                 return {
-                    // Escape: collapse snippet when inside
+                    // Escape: exit empty snippet, or collapse if not empty
                     'Escape': ({ editor }) => {
                         if (!editor.isActive('promptSnippet')) return false
                         
                         const { $from } = editor.state.selection
                         const ancestor = findAncestor($from, 'promptSnippet')
-                        if (!ancestor || !ancestor.node.attrs.expanded) return false
+                        if (!ancestor) return false
                         
+                        // If snippet is empty, exit it
+                        if (isPromptSnippetEmpty(ancestor.node)) {
+                            const listAncestor = findAncestor($from, 'promptSnippetList')
+                            if (!listAncestor) return false
+                            
+                            const { node: list, depth: listDepth } = listAncestor
+                            const listStart = $from.before(listDepth)
+                            const listEnd = $from.after(listDepth)
+                            const snippetStart = $from.before(ancestor.depth)
+                            const snippetEnd = $from.after(ancestor.depth)
+                            
+                            if (list.childCount === 1) {
+                                return editor.chain()
+                                    .deleteRange({ from: listStart, to: listEnd })
+                                    .insertContentAt(listStart, { type: 'paragraph' })
+                                    .setTextSelection(listStart + 1)
+                                    .run()
+                            } else {
+                                const snippetSize = snippetEnd - snippetStart
+                                const newListEnd = listEnd - snippetSize
+                                
+                                return editor.chain()
+                                    .deleteRange({ from: snippetStart, to: snippetEnd })
+                                    .insertContentAt(newListEnd, { type: 'paragraph' })
+                                    .setTextSelection(newListEnd + 1)
+                                    .run()
+                            }
+                        }
+                        
+                        // Otherwise just collapse if expanded
+                        if (!ancestor.node.attrs.expanded) return false
                         return editor.commands.togglePromptSnippetExpanded()
                     },
                     
@@ -1081,24 +1116,27 @@
                             if (!listAncestor) return false
                             
                             const { node: list, depth: listDepth } = listAncestor
+                            const listStart = $from.before(listDepth)
                             const listEnd = $from.after(listDepth)
                             
                             if (list.childCount === 1) {
                                 // Only snippet in list - replace entire list with paragraph
-                                const listStart = $from.before(listDepth)
                                 return editor.chain()
                                     .deleteRange({ from: listStart, to: listEnd })
                                     .insertContentAt(listStart, { type: 'paragraph' })
                                     .setTextSelection(listStart + 1)
                                     .run()
                             } else {
-                                // Multiple snippets - delete this one and insert paragraph after list
+                                // Multiple snippets - delete empty snippet and insert paragraph after list
                                 const snippetStart = $from.before(snippetDepth)
                                 const snippetEnd = $from.after(snippetDepth)
+                                const snippetSize = snippetEnd - snippetStart
+                                const newListEnd = listEnd - snippetSize
+                                
                                 return editor.chain()
                                     .deleteRange({ from: snippetStart, to: snippetEnd })
-                                    .insertContentAt(listEnd - (snippetEnd - snippetStart), { type: 'paragraph' })
-                                    .setTextSelection(listEnd - (snippetEnd - snippetStart) + 1)
+                                    .insertContentAt(newListEnd, { type: 'paragraph' })
+                                    .setTextSelection(newListEnd + 1)
                                     .run()
                             }
                         }
@@ -1210,24 +1248,70 @@
                         if (!listAncestor) return false
                         
                         const { node: list, depth: listDepth } = listAncestor
+                        const listStart = $from.before(listDepth)
                         const listEnd = $from.after(listDepth)
                         
                         if (list.childCount === 1) {
                             // Only snippet - replace list with paragraph
-                            const listStart = $from.before(listDepth)
                             return editor.chain()
                                 .deleteRange({ from: listStart, to: listEnd })
                                 .insertContentAt(listStart, { type: 'paragraph' })
                                 .setTextSelection(listStart + 1)
                                 .run()
                         } else {
-                            // Delete just this snippet and insert paragraph after list
+                            // Multiple snippets - delete empty snippet and insert paragraph after list
                             const snippetStart = $from.before(snippetDepth)
                             const snippetEnd = $from.after(snippetDepth)
+                            const snippetSize = snippetEnd - snippetStart
+                            const newListEnd = listEnd - snippetSize
+                            
                             return editor.chain()
                                 .deleteRange({ from: snippetStart, to: snippetEnd })
-                                .insertContentAt(listEnd - (snippetEnd - snippetStart), { type: 'paragraph' })
-                                .setTextSelection(listEnd - (snippetEnd - snippetStart) + 1)
+                                .insertContentAt(newListEnd, { type: 'paragraph' })
+                                .setTextSelection(newListEnd + 1)
+                                .run()
+                        }
+                    },
+                    
+                    // Delete key - same behavior as Backspace for empty snippets
+                    'Delete': ({ editor }) => {
+                        if (!editor.isActive('promptSnippet')) return false
+                        
+                        const { selection, selection: { $from } } = editor.state
+                        const titleAncestor = findAncestor($from, 'promptSnippetTitle')
+                        if (!titleAncestor) return false
+                        
+                        const snippetDepth = titleAncestor.depth - 1
+                        const snippet = $from.node(snippetDepth)
+                        
+                        // Only handle if snippet is empty
+                        if (!isPromptSnippetEmpty(snippet)) return false
+                        
+                        const listAncestor = findAncestor($from, 'promptSnippetList')
+                        if (!listAncestor) return false
+                        
+                        const { node: list, depth: listDepth } = listAncestor
+                        const listStart = $from.before(listDepth)
+                        const listEnd = $from.after(listDepth)
+                        
+                        if (list.childCount === 1) {
+                            // Only snippet - replace list with paragraph
+                            return editor.chain()
+                                .deleteRange({ from: listStart, to: listEnd })
+                                .insertContentAt(listStart, { type: 'paragraph' })
+                                .setTextSelection(listStart + 1)
+                                .run()
+                        } else {
+                            // Multiple snippets - delete empty snippet and insert paragraph after list
+                            const snippetStart = $from.before(snippetDepth)
+                            const snippetEnd = $from.after(snippetDepth)
+                            const snippetSize = snippetEnd - snippetStart
+                            const newListEnd = listEnd - snippetSize
+                            
+                            return editor.chain()
+                                .deleteRange({ from: snippetStart, to: snippetEnd })
+                                .insertContentAt(newListEnd, { type: 'paragraph' })
+                                .setTextSelection(newListEnd + 1)
                                 .run()
                         }
                     },
@@ -1475,6 +1559,9 @@
                         
                         // Only handle clicks when collapsed and not on buttons
                         if (!currentNode.attrs.expanded && !e.target.closest('.prompt-snippet-action')) {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            
                             let bodyText = ''
                             currentNode.forEach(child => {
                                 if (child.type.name === 'promptSnippetBody') {
@@ -1487,6 +1574,21 @@
                                 feedback.classList.add('visible')
                                 setTimeout(() => feedback.classList.remove('visible'), 1500)
                             }
+                        }
+                    })
+                    
+                    // Mousedown handler to prevent cursor placement in collapsed state
+                    dom.addEventListener('mousedown', (e) => {
+                        const pos = getPos()
+                        if (typeof pos !== 'number') return
+                        
+                        const currentNode = editor.state.doc.nodeAt(pos)
+                        if (!currentNode || currentNode.type.name !== 'promptSnippet') return
+                        
+                        // Prevent cursor placement when collapsed (except on action buttons)
+                        if (!currentNode.attrs.expanded && !e.target.closest('.prompt-snippet-action')) {
+                            e.preventDefault()
+                            e.stopPropagation()
                         }
                     })
                     
@@ -1786,7 +1888,7 @@
                     TextStyle,
                     Color
                 ],
-                content: '<p></p>',
+                content: '<h1></h1>',
                 onUpdate: ({ editor }) => {
                     sendToSwift({
                         type: 'contentChange',
@@ -1805,7 +1907,7 @@
             
             window.editorBridge = {
                 setContent: (html) => {
-                    editor.commands.setContent(html || '<p></p>');
+                    editor.commands.setContent(html || '<h1></h1>');
                 },
                 setContentJSON: (jsonStr) => { 
                     if (jsonStr) {

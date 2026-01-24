@@ -36,9 +36,9 @@ final class Document {
     @Attribute(.preserveValueOnDeletion) var isDeleted: Bool = false
     var deletedAt: Date?
     
-    // Sync status
-    var serverVersion: Int
-    var isDirty: Bool
+    // Sync status (defaults required for migration)
+    var serverVersion: Int = 0
+    var isDirty: Bool = false
     var lastSyncedAt: Date?
     var serverId: String?  // Remote ID for cloud sync
     

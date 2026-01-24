@@ -1,0 +1,43 @@
+# Writa API - Cloudflare Workers Configuration
+# 
+# Setup steps:
+# 1. Run: npx wrangler login
+# 2. Create D1 database: npx wrangler d1 create writa-db
+# 3. Create R2 bucket: npx wrangler r2 bucket create writa-files
+# 4. Add secrets: npx wrangler secret put CLERK_SECRET_KEY
+# 5. Deploy: npm run deploy
+
+name = "writa-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "writa-db"
+database_id = "d52bd79a-37c5-4f24-8cdb-df1a193971a3"
+
+# R2 Storage binding
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "writa-files"
+
+# Environment variables (non-secret)
+[vars]
+ENVIRONMENT = "production"
+CORS_ORIGIN = "https://writa.app"
+
+# Development environment
+[env.dev]
+name = "writa-api-dev"
+[env.dev.vars]
+ENVIRONMENT = "development"
+CORS_ORIGIN = "*"
+
+# Secrets (add via: wrangler secret put SECRET_NAME)
+# Required secrets:
+# - CLERK_SECRET_KEY: Your Clerk secret key
+# - CLERK_PUBLISHABLE_KEY: Your Clerk publishable key
+
+# Migrations are applied manually via:
+# npx wrangler d1 execute writa-db --remote --file=src/db/migrations/0001_initial_schema.sql

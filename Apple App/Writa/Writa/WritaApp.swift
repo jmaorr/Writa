@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import Clerk
 
 @main
 struct WritaApp: App {
@@ -19,6 +20,15 @@ struct WritaApp: App {
     @State private var syncService: SyncService?
     @State private var documentManager = DocumentManager()
     @State private var autosaveManager = AutosaveManager()
+    
+    /// Clerk shared instance for environment injection
+    @State private var clerk = Clerk.shared
+    
+    // MARK: - Configuration
+    
+    /// Clerk publishable key
+    /// Get this from: https://dashboard.clerk.com/[your-app]/api-keys
+    private let clerkPublishableKey = "pk_test_cHJvYmFibGUtYmF0LTk0LmNsZXJrLmFjY291bnRzLmRldiQ"
     
     // MARK: - Model Container
     
@@ -39,10 +49,7 @@ struct WritaApp: App {
         }
     }()
     
-    init() {
-        // Services will be configured after model context is available
-        _syncService = State(initialValue: SyncService(authManager: AuthManager()))
-    }
+    // Note: syncService is created in onAppear to use the shared authManager
 
     // MARK: - Body
     
@@ -52,15 +59,26 @@ struct WritaApp: App {
             MainContentView()
                 .themed(themeManager)
                 .toolbarConfiguration(toolbarConfig)
+                .environment(\.clerk, clerk)
                 .environment(\.authManager, authManager)
                 .environment(\.syncService, syncService)
                 .environment(\.documentManager, documentManager)
                 .environment(\.autosaveManager, autosaveManager)
+                .task {
+                    // Configure and load Clerk
+                    await authManager.configure(publishableKey: clerkPublishableKey)
+                }
                 .onAppear {
                     // Configure services with model context
                     let context = sharedModelContainer.mainContext
                     documentManager.configure(with: context)
                     autosaveManager.configure(documentManager: documentManager)
+                    
+                    // Create SyncService with shared authManager
+                    if syncService == nil {
+                        syncService = SyncService(authManager: authManager)
+                    }
+                    syncService?.configure(with: documentManager)
                     
                     // Clean up expired trash on app launch
                     documentManager.cleanupExpiredTrash()
@@ -80,6 +98,7 @@ struct WritaApp: App {
             CommunityWindowView()
                 .themed(themeManager)
                 .toolbarConfiguration(toolbarConfig)
+                .environment(\.clerk, clerk)
                 .environment(\.authManager, authManager)
         }
         .windowStyle(.automatic)
@@ -92,6 +111,7 @@ struct WritaApp: App {
             SettingsView()
                 .themed(themeManager)
                 .toolbarConfiguration(toolbarConfig)
+                .environment(\.clerk, clerk)
                 .environment(\.authManager, authManager)
                 .environment(\.syncService, syncService)
         }
@@ -197,6 +217,11 @@ struct WritaCommands: Commands {
                     // Editor command
                 }
                 .keyboardShortcut("9", modifiers: [.command, .shift])
+                
+                Button("Prompt Snippet") {
+                    NotificationCenter.default.post(name: NSNotification.Name("InsertPromptSnippet"), object: nil)
+                }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
             }
             
             Divider()

@@ -3,15 +3,16 @@
 //  Writa
 //
 //  Handles user authentication and session management.
-//  Prepared for integration with Firebase Auth, Auth0, or custom backend.
+//  Integrates with Clerk for authentication.
 //
 
 import SwiftUI
 import Combine
+import Clerk
 
 // MARK: - User Model
 
-struct User: Identifiable, Codable {
+struct WritaUser: Identifiable, Codable {
     let id: String
     var email: String
     var displayName: String?
@@ -19,13 +20,23 @@ struct User: Identifiable, Codable {
     var createdAt: Date
     var subscription: SubscriptionTier
     
-    init(id: String, email: String, displayName: String? = nil, photoURL: URL? = nil) {
+    init(id: String, email: String, displayName: String? = nil, photoURL: URL? = nil, createdAt: Date = Date()) {
         self.id = id
         self.email = email
         self.displayName = displayName
         self.photoURL = photoURL
-        self.createdAt = Date()
+        self.createdAt = createdAt
         self.subscription = .free
+    }
+    
+    /// Create a WritaUser from a Clerk User
+    init(from clerkUser: User) {
+        self.id = clerkUser.id
+        self.email = clerkUser.primaryEmailAddress?.emailAddress ?? ""
+        self.displayName = clerkUser.firstName ?? clerkUser.username
+        self.photoURL = clerkUser.imageUrl.isEmpty ? nil : URL(string: clerkUser.imageUrl)
+        self.createdAt = clerkUser.createdAt
+        self.subscription = .free  // Will be set from server metadata
     }
 }
 
@@ -71,145 +82,143 @@ enum SubscriptionTier: String, Codable {
 
 // MARK: - Auth State
 
-enum AuthState {
+enum AuthState: Equatable {
     case loading
-    case authenticated(User)
+    case authenticated(WritaUser)
     case unauthenticated
-    case error(Error)
+    case error(String)
+    
+    static func == (lhs: AuthState, rhs: AuthState) -> Bool {
+        switch (lhs, rhs) {
+        case (.loading, .loading):
+            return true
+        case (.authenticated(let lhsUser), .authenticated(let rhsUser)):
+            return lhsUser.id == rhsUser.id
+        case (.unauthenticated, .unauthenticated):
+            return true
+        case (.error(let lhsMsg), .error(let rhsMsg)):
+            return lhsMsg == rhsMsg
+        default:
+            return false
+        }
+    }
 }
 
 // MARK: - Auth Manager
 
 @Observable
 class AuthManager {
-    var currentUser: User?
+    var currentUser: WritaUser?
     var authState: AuthState = .loading
     var isAuthenticated: Bool {
         if case .authenticated = authState { return true }
         return false
     }
     
-    private var cancellables = Set<AnyCancellable>()
+    /// Reference to shared Clerk instance
+    private let clerk = Clerk.shared
+    
+    /// Whether Clerk has been configured and loaded
+    private(set) var isClerkReady = false
     
     init() {
-        // Check for cached session
-        checkCachedSession()
+        // Initial state - will be updated when Clerk loads
+        authState = .loading
     }
     
-    // MARK: - Session Management
+    // MARK: - Clerk Configuration
     
-    private func checkCachedSession() {
-        // TODO: Check for cached auth token/session
-        // For now, assume unauthenticated (offline mode)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.authState = .unauthenticated
+    /// Configure Clerk with publishable key
+    /// Call this in your app's init or onAppear
+    func configure(publishableKey: String) async {
+        clerk.configure(publishableKey: publishableKey)
+        
+        do {
+            try await clerk.load()
+            isClerkReady = true
+            
+            // Update auth state based on Clerk's state
+            await MainActor.run {
+                updateAuthState()
+            }
+            
+            print("✅ Clerk loaded successfully")
+        } catch {
+            print("❌ Failed to load Clerk: \(error)")
+            await MainActor.run {
+                self.authState = .error("Failed to initialize authentication")
+            }
         }
     }
     
-    // MARK: - Authentication Methods
-    
-    /// Sign in with email and password
-    func signIn(email: String, password: String) async throws {
-        authState = .loading
-        
-        // TODO: Implement actual authentication
-        // Example: Firebase Auth, custom API, etc.
-        
-        // Simulate network delay
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-        
-        // Create mock user for testing
-        let user = User(
-            id: UUID().uuidString,
-            email: email,
-            displayName: email.components(separatedBy: "@").first
-        )
-        
-        await MainActor.run {
+    /// Update auth state from Clerk's current state
+    @MainActor
+    func updateAuthState() {
+        if let clerkUser = clerk.user {
+            let user = WritaUser(from: clerkUser)
             self.currentUser = user
             self.authState = .authenticated(user)
-            self.cacheSession(user)
-        }
-    }
-    
-    /// Sign up with email and password
-    func signUp(email: String, password: String, displayName: String) async throws {
-        authState = .loading
-        
-        // TODO: Implement actual signup
-        
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-        
-        let user = User(
-            id: UUID().uuidString,
-            email: email,
-            displayName: displayName
-        )
-        
-        await MainActor.run {
-            self.currentUser = user
-            self.authState = .authenticated(user)
-            self.cacheSession(user)
-        }
-    }
-    
-    /// Sign in with Google
-    func signInWithGoogle() async throws {
-        authState = .loading
-        
-        // TODO: Implement Google OAuth
-        throw AuthError.notImplemented
-    }
-    
-    /// Sign in with Apple
-    func signInWithApple() async throws {
-        authState = .loading
-        
-        // TODO: Implement Sign in with Apple
-        throw AuthError.notImplemented
-    }
-    
-    /// Sign out
-    func signOut() async throws {
-        authState = .loading
-        
-        // TODO: Clear server session
-        
-        await MainActor.run {
+        } else {
             self.currentUser = nil
             self.authState = .unauthenticated
-            self.clearCachedSession()
+        }
+    }
+    
+    // MARK: - Sign Out
+    
+    /// Sign out the current user
+    func signOut() async throws {
+        await MainActor.run {
+            authState = .loading
+        }
+        
+        do {
+            try await clerk.signOut()
+            
+            await MainActor.run {
+                self.currentUser = nil
+                self.authState = .unauthenticated
+            }
+        } catch {
+            await MainActor.run {
+                self.authState = .error(error.localizedDescription)
+            }
+            throw AuthError.serverError(error.localizedDescription)
         }
     }
     
     /// Delete account
     func deleteAccount() async throws {
-        guard let user = currentUser else { return }
-        
-        // TODO: Delete user data from server
-        
-        try await signOut()
-    }
-    
-    // MARK: - Session Persistence
-    
-    private func cacheSession(_ user: User) {
-        // TODO: Save auth token securely in Keychain
-        if let encoded = try? JSONEncoder().encode(user) {
-            UserDefaults.standard.set(encoded, forKey: "cached_user")
+        guard clerk.user != nil else {
+            throw AuthError.notAuthenticated
         }
-    }
-    
-    private func clearCachedSession() {
-        // TODO: Clear auth token from Keychain
-        UserDefaults.standard.removeObject(forKey: "cached_user")
+        
+        do {
+            try await clerk.user?.delete()
+            try await signOut()
+        } catch {
+            throw AuthError.serverError(error.localizedDescription)
+        }
     }
     
     // MARK: - Token Management
     
+    /// Get a valid JWT token for API calls
     func getAuthToken() async throws -> String {
-        // TODO: Get valid auth token (refresh if needed)
-        throw AuthError.notAuthenticated
+        guard let session = clerk.session else {
+            throw AuthError.notAuthenticated
+        }
+        
+        do {
+            // Get a fresh token from the session
+            let tokenResource = try await session.getToken()
+            guard let jwt = tokenResource?.jwt else {
+                throw AuthError.notAuthenticated
+            }
+            return jwt
+        } catch {
+            throw AuthError.serverError("Failed to get auth token: \(error.localizedDescription)")
+        }
     }
 }
 
@@ -220,6 +229,7 @@ enum AuthError: LocalizedError {
     case notImplemented
     case invalidCredentials
     case networkError
+    case verificationRequired
     case serverError(String)
     
     var errorDescription: String? {
@@ -232,6 +242,8 @@ enum AuthError: LocalizedError {
             return "Invalid email or password"
         case .networkError:
             return "Network connection error"
+        case .verificationRequired:
+            return "Please verify your email address"
         case .serverError(let message):
             return "Server error: \(message)"
         }
