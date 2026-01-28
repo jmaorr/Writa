@@ -35,10 +35,10 @@ enum TaskViewMode: String, CaseIterable {
 struct TasksView: View {
     @Environment(\.modelContext) private var modelContext
     
-    @Query(filter: #Predicate<Document> { $0.isDeleted == false })
+    @Query(filter: #Predicate<Document> { $0.isTrashed == false })
     private var documents: [Document]
     
-    @Binding var documentSelection: Document?
+    @Binding var selectedDocumentIDs: Set<Document.ID>
     
     @State private var filterOption: TaskFilterOption = .all
     @State private var sortOption: TaskSortOption = .documentOrder
@@ -224,7 +224,7 @@ struct TasksView: View {
     private func documentHeader(for document: Document) -> some View {
         Button {
             if let doc = documents.first(where: { $0.id == document.id }) {
-                documentSelection = doc
+                selectedDocumentIDs = [doc.id]
             }
         } label: {
             HStack {
@@ -312,7 +312,7 @@ struct TasksView: View {
     
     private func openDocument(for task: ExtractedTask) {
         if let document = documents.first(where: { $0.id == task.documentID }) {
-            documentSelection = document
+            selectedDocumentIDs = [document.id]
         }
     }
     
@@ -413,7 +413,7 @@ struct TaskRowView: View {
 // MARK: - Preview
 
 #Preview {
-    TasksView(documentSelection: .constant(nil))
+    TasksView(selectedDocumentIDs: .constant([]))
         .modelContainer(for: [Document.self, Workspace.self], inMemory: true)
         .frame(width: 350, height: 600)
 }

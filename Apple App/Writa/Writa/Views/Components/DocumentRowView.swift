@@ -49,7 +49,9 @@ struct DocumentRowView: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                 
-                if document.isDirty {
+                // Only show dirty indicator for non-trashed documents
+                // (Trashed documents are marked dirty for sync, but shouldn't show the dot in trash)
+                if document.isDirty && !document.isTrashed {
                     Circle()
                         .fill(.orange)
                         .frame(width: 5, height: 5)

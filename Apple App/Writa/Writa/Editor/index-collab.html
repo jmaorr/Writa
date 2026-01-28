@@ -13,9 +13,21 @@
         }
         #editor {
             height: 100%;
+            min-height: 100px;
             overflow-y: auto;
         }
-        .tiptap { outline: none; }
+        .tiptap { 
+            outline: none;
+            min-height: 100%;
+            padding: 16px;
+        }
+        .tiptap p.is-editor-empty:first-child::before {
+            color: #adb5bd;
+            content: attr(data-placeholder);
+            float: left;
+            height: 0;
+            pointer-events: none;
+        }
         .tiptap .selectedCell:after {
             z-index: 2;
             position: absolute;
@@ -25,13 +37,33 @@
             pointer-events: none;
         }
         
-        /* Task Card Styles */
-        .task-card-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
+        /* Connection status indicator */
+        #connection-status {
+            position: fixed;
+            top: 8px;
+            right: 8px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+        #connection-status.connected {
+            background: rgba(52, 199, 89, 0.2);
+            color: #34C759;
+        }
+        #connection-status.disconnected {
+            background: rgba(255, 149, 0, 0.2);
+            color: #FF9500;
+        }
+        #connection-status.syncing {
+            background: rgba(0, 122, 255, 0.2);
+            color: #007AFF;
         }
         
+        /* Task Card Styles (same as original) */
+        .task-card-list { list-style: none; padding: 0; margin: 0; }
         .task-card {
             position: relative;
             display: flex;
@@ -44,29 +76,18 @@
             background: var(--writa-card-bg, rgba(128, 128, 128, 0.05));
             transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
-        
-        .task-card:hover {
-            border-color: var(--writa-border-hover, rgba(128, 128, 128, 0.3));
-        }
-        
+        .task-card:hover { border-color: var(--writa-border-hover, rgba(128, 128, 128, 0.3)); }
         .task-card:focus-within {
             border-color: var(--writa-accent-color, #007AFF);
             box-shadow: 0 0 0 3px var(--writa-accent-shadow, rgba(0, 122, 255, 0.15));
         }
-        
-        .task-card.is-completed {
-            opacity: 0.6;
-        }
-        
-        .task-card.is-completed .task-card-title {
-            color: var(--writa-text-secondary, #888);
-        }
-        
+        .task-card.is-completed { opacity: 0.6; }
+        .task-card.is-completed .task-card-title { color: var(--writa-text-secondary, #888); }
         .task-card-checkbox {
             flex-shrink: 0;
             width: 18px;
             height: 18px;
-            margin-top: 2px; /* Align with first line of title */
+            margin-top: 2px;
             border: 2px solid var(--writa-checkbox-border, rgba(128, 128, 128, 0.4));
             border-radius: 5px;
             cursor: pointer;
@@ -77,17 +98,14 @@
             background: transparent;
             user-select: none;
         }
-        
         .task-card-checkbox:hover {
             border-color: var(--writa-success-color, #34C759);
             background: rgba(52, 199, 89, 0.15);
         }
-        
         .task-card.is-completed .task-card-checkbox {
             background: var(--writa-success-color, #34C759);
             border-color: var(--writa-success-color, #34C759);
         }
-        
         .task-card.is-completed .task-card-checkbox::after {
             content: '✓';
             color: white;
@@ -95,12 +113,7 @@
             font-weight: bold;
             line-height: 1;
         }
-        
-        .task-card-content {
-            flex: 1;
-            min-width: 0;
-        }
-        
+        .task-card-content { flex: 1; min-width: 0; }
         .task-card-title {
             font-weight: 500;
             font-size: 0.9em;
@@ -108,7 +121,6 @@
             outline: none;
             min-height: 1.4em;
         }
-        
         .task-card-title.is-empty::before,
         .task-card-title:empty::before {
             content: 'What needs to be done?';
@@ -117,7 +129,6 @@
             float: left;
             height: 0;
         }
-        
         .task-card-description {
             font-size: 0.8em;
             color: var(--writa-text-secondary, #666);
@@ -125,14 +136,6 @@
             margin-top: 2px;
             outline: none;
             min-height: 1.4em;
-            transition: opacity 0.15s ease, min-height 0.15s ease;
-        }
-        
-        /* Description nodes are now dynamically added/removed, not hidden */
-        
-        .task-card-title:focus,
-        .task-card-description:focus {
-            outline: none;
         }
         
         /* TipTap Placeholder styling */
@@ -142,29 +145,10 @@
             float: left;
             height: 0;
         }
-        
-        .tiptap .task-card-title.is-empty::before {
-            content: 'What needs to be done?';
-        }
-        
-        .tiptap .task-card-description.is-empty::before {
-            content: 'Add notes...';
-        }
-        
-        /* Fallback placeholder using :empty (for when .is-empty isn't added) */
-        .task-card-title:not(.is-empty):empty::before,
-        .task-card-title > br:only-child::before {
-            content: 'What needs to be done?';
-            color: var(--writa-text-placeholder, #999);
-            pointer-events: none;
-        }
-        
-        .task-card-description:not(.is-empty):empty::before,
-        .task-card-description > br:only-child::before {
-            content: 'Press Tab for description';
-            color: var(--writa-text-placeholder, #999);
-            pointer-events: none;
-        }
+        .tiptap .task-card-title.is-empty::before { content: 'What needs to be done?'; }
+        .tiptap .task-card-description.is-empty::before { content: 'Add notes...'; }
+        .tiptap .prompt-snippet-title.is-empty::before { content: 'Snippet title...'; }
+        .tiptap .prompt-snippet-body.is-empty::before { content: 'Write your prompt here...'; }
         
         /* Floating Task Card Action Bar */
         #task-action-bar {
@@ -175,10 +159,7 @@
             z-index: 1000;
             pointer-events: auto;
         }
-        
-        #task-action-bar.visible {
-            display: flex;
-        }
+        #task-action-bar.visible { display: flex; }
         
         .task-card-action {
             display: inline-flex;
@@ -195,27 +176,12 @@
             white-space: nowrap;
             transition: color 0.15s ease;
         }
-        
-        .task-card-action:hover {
-            color: var(--writa-text-primary, #333);
-        }
-        
-        .task-card-action-shortcut {
-            font-size: 9px;
-            opacity: 0.7;
-        }
-        
-        .task-card-action--delete:hover {
-            color: #FF3B30;
-        }
+        .task-card-action:hover { color: var(--writa-text-primary, #333); }
+        .task-card-action-shortcut { font-size: 9px; opacity: 0.7; }
+        .task-card-action--delete:hover { color: #FF3B30; }
         
         /* Prompt Snippet Styles */
-        .prompt-snippet-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        
+        .prompt-snippet-list { list-style: none; padding: 0; margin: 0; }
         .prompt-snippet {
             position: relative;
             display: flex;
@@ -228,11 +194,7 @@
             background: var(--writa-card-bg, rgba(128, 128, 128, 0.05));
             transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
-        
-        .prompt-snippet:hover {
-            border-color: var(--writa-border-hover, rgba(128, 128, 128, 0.3));
-        }
-        
+        .prompt-snippet:hover { border-color: var(--writa-border-hover, rgba(128, 128, 128, 0.3)); }
         .prompt-snippet:focus-within {
             border-color: var(--writa-accent-color, #007AFF);
             box-shadow: 0 0 0 3px var(--writa-accent-shadow, rgba(0, 122, 255, 0.15));
@@ -253,17 +215,14 @@
             background: transparent;
             user-select: none;
         }
-        
         .prompt-snippet-checkbox:hover {
             border-color: var(--writa-success-color, #34C759);
             background: rgba(52, 199, 89, 0.15);
         }
-        
         .prompt-snippet.is-completed .prompt-snippet-checkbox {
             background: var(--writa-success-color, #34C759);
             border-color: var(--writa-success-color, #34C759);
         }
-        
         .prompt-snippet.is-completed .prompt-snippet-checkbox::after {
             content: '✓';
             color: white;
@@ -271,20 +230,10 @@
             font-weight: bold;
             line-height: 1;
         }
+        .prompt-snippet.is-completed { opacity: 0.6; }
+        .prompt-snippet.is-completed .prompt-snippet-title { color: var(--writa-text-secondary, #888); }
         
-        .prompt-snippet.is-completed {
-            opacity: 0.6;
-        }
-        
-        .prompt-snippet.is-completed .prompt-snippet-title {
-            color: var(--writa-text-secondary, #888);
-        }
-        
-        .prompt-snippet-content {
-            flex: 1;
-            min-width: 0;
-        }
-        
+        .prompt-snippet-content { flex: 1; min-width: 0; }
         .prompt-snippet-title {
             font-weight: 500;
             font-size: 0.9em;
@@ -293,15 +242,6 @@
             min-height: 1.4em;
             padding-right: 180px; /* Space for action buttons */
         }
-        
-        .prompt-snippet-title.is-empty::before {
-            content: 'Snippet title...';
-            color: var(--writa-text-placeholder, #999);
-            pointer-events: none;
-            float: left;
-            height: 0;
-        }
-        
         .prompt-snippet-body {
             font-size: 0.8em;
             color: var(--writa-text-secondary, #666);
@@ -311,14 +251,6 @@
             min-height: 1.4em;
         }
         
-        .prompt-snippet-body.is-empty::before {
-            content: 'Write your prompt here...';
-            color: var(--writa-text-placeholder, #999);
-            pointer-events: none;
-            float: left;
-            height: 0;
-        }
-        
         .prompt-snippet-actions {
             position: absolute;
             top: 8px;
@@ -326,7 +258,6 @@
             display: flex;
             gap: 4px;
         }
-        
         .prompt-snippet-action {
             display: inline-flex;
             align-items: center;
@@ -341,74 +272,40 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             transition: all 0.15s ease;
         }
-        
         .prompt-snippet-action:hover {
             background: var(--writa-card-bg, rgba(128, 128, 128, 0.1));
             border-color: var(--writa-border-hover, rgba(128, 128, 128, 0.3));
         }
-        
         .prompt-snippet-action--done {
             color: var(--writa-success-color, #34C759);
             border-color: var(--writa-success-color, #34C759);
         }
-        
-        .prompt-snippet-action--done:hover {
-            background: rgba(52, 199, 89, 0.1);
-        }
-        
-        .prompt-snippet-action--delete {
-            color: var(--writa-text-secondary, #888);
-        }
-        
+        .prompt-snippet-action--done:hover { background: rgba(52, 199, 89, 0.1); }
+        .prompt-snippet-action--delete { color: var(--writa-text-secondary, #888); }
         .prompt-snippet-action--delete:hover {
             color: #FF3B30;
             border-color: #FF3B30;
             background: rgba(255, 59, 48, 0.1);
         }
-        
-        .prompt-snippet-action-icon {
-            font-size: 12px;
-            line-height: 1;
-        }
+        .prompt-snippet-action-icon { font-size: 12px; line-height: 1; }
         
         /* Collapsed state */
-        .prompt-snippet.is-collapsed {
-            cursor: pointer;
-        }
+        .prompt-snippet.is-collapsed { cursor: pointer; }
+        .prompt-snippet.is-collapsed:hover { background: var(--writa-card-hover-bg, rgba(128, 128, 128, 0.08)); }
+        .prompt-snippet.is-collapsed .prompt-snippet-content { display: none; pointer-events: none; }
+        .prompt-snippet.is-collapsed .prompt-snippet-actions { display: none; }
         
-        .prompt-snippet.is-collapsed:hover {
-            background: var(--writa-card-hover-bg, rgba(128, 128, 128, 0.08));
-        }
-        
-        .prompt-snippet.is-collapsed .prompt-snippet-content {
-            display: none;
-            pointer-events: none;
-        }
-        
-        .prompt-snippet.is-collapsed .prompt-snippet-actions {
-            display: none;
-        }
-        
-        .prompt-snippet-preview {
-            display: none;
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .prompt-snippet.is-collapsed .prompt-snippet-preview {
-            display: block;
-        }
-        
+        .prompt-snippet-preview { display: none; flex: 1; min-width: 0; }
+        .prompt-snippet.is-collapsed .prompt-snippet-preview { display: block; }
         .prompt-snippet-preview-title {
             font-weight: 500;
             font-size: 0.9em;
             color: var(--writa-text-primary, #333);
             line-height: 1.4;
-            padding-right: 120px; /* Space for Edit/Copy buttons */
+            padding-right: 120px;
             pointer-events: none;
             user-select: none;
         }
-        
         .prompt-snippet-preview-body {
             font-size: 0.8em;
             color: var(--writa-text-secondary, #888);
@@ -421,7 +318,6 @@
             pointer-events: none;
             user-select: none;
         }
-        
         .prompt-snippet-preview-actions {
             display: none;
             position: absolute;
@@ -429,10 +325,7 @@
             right: 8px;
             gap: 4px;
         }
-        
-        .prompt-snippet.is-collapsed .prompt-snippet-preview-actions {
-            display: flex;
-        }
+        .prompt-snippet.is-collapsed .prompt-snippet-preview-actions { display: flex; }
         
         /* Copy feedback */
         .prompt-snippet-copy-feedback {
@@ -451,14 +344,37 @@
             transition: opacity 0.2s ease;
             z-index: 10;
         }
+        .prompt-snippet-copy-feedback.visible { opacity: 1; }
         
-        .prompt-snippet-copy-feedback.visible {
-            opacity: 1;
+        /* Collaboration cursors */
+        .collaboration-cursor__caret {
+            border-left: 1px solid #0d0d0d;
+            border-right: 1px solid #0d0d0d;
+            margin-left: -1px;
+            margin-right: -1px;
+            pointer-events: none;
+            position: relative;
+            word-break: normal;
+        }
+        .collaboration-cursor__label {
+            border-radius: 3px 3px 3px 0;
+            color: #fff;
+            font-size: 12px;
+            font-style: normal;
+            font-weight: 600;
+            left: -1px;
+            line-height: normal;
+            padding: 0.1rem 0.3rem;
+            position: absolute;
+            top: -1.4em;
+            user-select: none;
+            white-space: nowrap;
         }
     </style>
     <style id="theme-styles"></style>
 </head>
 <body>
+    <div id="connection-status" class="disconnected">Offline</div>
     <div id="editor"></div>
     
     <!-- Floating action bar for task cards -->
@@ -474,39 +390,159 @@
         </button>
     </div>
     
+    <!-- Early error handler (runs before module) -->
+    <script>
+        function sendToSwift(msg) {
+            if (window.webkit?.messageHandlers?.tiptap) {
+                window.webkit.messageHandlers.tiptap.postMessage(msg);
+            }
+        }
+        window.sendToSwift = sendToSwift;
+        sendToSwift({ type: 'debug', message: 'Early script loaded, setting up error handlers...' });
+        
+        window.onerror = (msg, url, line, col, error) => {
+            const stack = error?.stack || 'no stack';
+            sendToSwift({ type: 'debug', message: `JS ERROR: ${msg} at ${url}:${line}:${col}` });
+            sendToSwift({ type: 'debug', message: `JS STACK: ${stack.slice(0, 500)}` });
+            console.error('Global error:', msg, error);
+            return false;
+        };
+        
+        window.addEventListener('unhandledrejection', (event) => {
+            sendToSwift({ type: 'debug', message: `Unhandled Promise: ${event.reason}` });
+            console.error('Unhandled rejection:', event.reason);
+        });
+    </script>
+    
     <script type="module">
-        import { Editor, Node, mergeAttributes } from 'https://esm.sh/@tiptap/core@2.1.13'
-        import StarterKit from 'https://esm.sh/@tiptap/starter-kit@2.1.13'
-        import Placeholder from 'https://esm.sh/@tiptap/extension-placeholder@2.1.13'
-        import Underline from 'https://esm.sh/@tiptap/extension-underline@2.1.13'
-        import Link from 'https://esm.sh/@tiptap/extension-link@2.1.13'
-        import TaskList from 'https://esm.sh/@tiptap/extension-task-list@2.1.13'
-        import TaskItem from 'https://esm.sh/@tiptap/extension-task-item@2.1.13'
-        import Image from 'https://esm.sh/@tiptap/extension-image@2.1.13'
-        import Table from 'https://esm.sh/@tiptap/extension-table@2.1.13'
-        import TableRow from 'https://esm.sh/@tiptap/extension-table-row@2.1.13'
-        import TableCell from 'https://esm.sh/@tiptap/extension-table-cell@2.1.13'
-        import TableHeader from 'https://esm.sh/@tiptap/extension-table-header@2.1.13'
-        import Highlight from 'https://esm.sh/@tiptap/extension-highlight@2.1.13'
-        import TextAlign from 'https://esm.sh/@tiptap/extension-text-align@2.1.13'
-        import Subscript from 'https://esm.sh/@tiptap/extension-subscript@2.1.13'
-        import Superscript from 'https://esm.sh/@tiptap/extension-superscript@2.1.13'
-        import Color from 'https://esm.sh/@tiptap/extension-color@2.1.13'
-        import TextStyle from 'https://esm.sh/@tiptap/extension-text-style@2.1.13'
+        // ============================================
+        // Module loaded indicator
+        // ============================================
+        window.sendToSwift({ type: 'debug', message: 'Module script starting...' });
         
         // ============================================
-        // Helper: Find ancestor node at a specific depth
+        // Imports from local bundle (ensures consistent Yjs version)
         // ============================================
+        let Editor, Node, mergeAttributes, StarterKit;
+        let Placeholder, Underline, Link, TaskList, TaskItem;
+        let Image, Table, TableRow, TableCell, TableHeader;
+        let Highlight, TextAlign, Subscript, Superscript, TextStyle, Color;
+        let Collaboration, CollaborationCursor, Y, YPartyKitProvider, IndexeddbPersistence;
+        
+        try {
+            // Note: Xcode flattens bundle resources, so collab-bundle.js is in same dir as HTML
+            window.sendToSwift({ type: 'debug', message: 'Importing bundle from ./collab-bundle.js...' });
+            const bundle = await import('./collab-bundle.js');
+            window.sendToSwift({ type: 'debug', message: `Bundle loaded! Keys: ${Object.keys(bundle).slice(0, 10).join(', ')}...` });
+            
+            // Destructure from bundle
+            ({ Editor, Node, mergeAttributes, StarterKit,
+               Placeholder, Underline, Link, TaskList, TaskItem,
+               Image, Table, TableRow, TableCell, TableHeader,
+               Highlight, TextAlign, Subscript, Superscript, TextStyle, Color,
+               Collaboration, CollaborationCursor, Y,
+               YPartyKitProvider, IndexeddbPersistence } = bundle);
+               
+            window.sendToSwift({ type: 'debug', message: `Imports ready: Editor=${!!Editor}, Y=${!!Y}, Collaboration=${!!Collaboration}` });
+        } catch (err) {
+            window.sendToSwift({ type: 'debug', message: `BUNDLE IMPORT ERROR: ${err.message}` });
+            console.error('Bundle import error:', err);
+            throw err;
+        }
+        
+        // ============================================
+        // Configuration (set by native app)
+        // ============================================
+        let PARTYKIT_HOST = 'writa-collab.jmaorr.partykit.dev' // Will be set by native app
+        let DOCUMENT_ID = null
+        let USER_ID = null
+        let USER_NAME = 'Anonymous'
+        let USER_COLOR = '#' + Math.floor(Math.random()*16777215).toString(16)
+        
+        // ============================================
+        // Yjs Document and Provider (initialized per document)
+        // ============================================
+        let ydoc = null
+        let wsProvider = null
+        let indexeddbProvider = null
+        let editor = null
+        
+        // ============================================
+        // Helper Functions
+        // ============================================
+        function sendToSwift(msg) {
+            if (window.webkit?.messageHandlers?.tiptap) {
+                window.webkit.messageHandlers.tiptap.postMessage(msg);
+            }
+        }
+        
+        function updateConnectionStatus(status) {
+            const el = document.getElementById('connection-status')
+            if (!el) return
+            
+            el.className = status
+            el.textContent = {
+                'connected': 'Synced',
+                'disconnected': 'Offline',
+                'syncing': 'Syncing...'
+            }[status] || status
+            
+            // Hide after connected
+            if (status === 'connected') {
+                setTimeout(() => { el.style.opacity = '0' }, 2000)
+            } else {
+                el.style.opacity = '1'
+            }
+        }
+        
+        function getState() {
+            if (!editor) return {};
+            var e = editor;
+            return {
+                isBold: e.isActive('bold'),
+                isItalic: e.isActive('italic'),
+                isUnderline: e.isActive('underline'),
+                isStrike: e.isActive('strike'),
+                isCode: e.isActive('code'),
+                isCodeBlock: e.isActive('codeBlock'),
+                isBlockquote: e.isActive('blockquote'),
+                isBulletList: e.isActive('bulletList'),
+                isOrderedList: e.isActive('orderedList'),
+                isTaskList: e.isActive('taskList'),
+                isTaskCard: e.isActive('taskCard'),
+                isPromptSnippet: e.isActive('promptSnippet'),
+                isHighlight: e.isActive('highlight'),
+                isSubscript: e.isActive('subscript'),
+                isSuperscript: e.isActive('superscript'),
+                headingLevel: e.isActive('heading', { level: 1 }) ? 1 : 
+                              e.isActive('heading', { level: 2 }) ? 2 : 
+                              e.isActive('heading', { level: 3 }) ? 3 : 0,
+                isLink: e.isActive('link'),
+                textAlign: e.isActive({ textAlign: 'left' }) ? 'left' :
+                          e.isActive({ textAlign: 'center' }) ? 'center' :
+                          e.isActive({ textAlign: 'right' }) ? 'right' :
+                          e.isActive({ textAlign: 'justify' }) ? 'justify' : 'left',
+                canUndo: e.can().undo(),
+                canRedo: e.can().redo()
+            };
+        }
+        
+        // ============================================
+        // Helper Functions
+        // ============================================
+        
+        // Find ancestor node by type name
         function findAncestor($pos, typeName) {
-            for (let d = $pos.depth; d > 0; d--) {
-                if ($pos.node(d).type.name === typeName) {
-                    return { node: $pos.node(d), depth: d }
+            for (let depth = $pos.depth; depth > 0; depth--) {
+                const node = $pos.node(depth)
+                if (node.type.name === typeName) {
+                    return { node, depth }
                 }
             }
             return null
         }
         
-        // Helper: Check if a task card is empty (no text in title or description)
+        // Check if task card is empty
         function isTaskCardEmpty(taskCard) {
             let empty = true
             taskCard.forEach(child => {
@@ -515,7 +551,7 @@
             return empty
         }
         
-        // Helper: Create a new empty task card node (without description - added on Tab)
+        // Create a new task card node
         function createTaskCard(schema, includeDescription = false) {
             const title = schema.nodes.taskCardTitle.create()
             if (includeDescription) {
@@ -525,18 +561,31 @@
             return schema.nodes.taskCard.create({ checked: false }, [title])
         }
         
+        // Check if prompt snippet is empty
+        function isPromptSnippetEmpty(snippet) {
+            let empty = true
+            snippet.forEach(child => {
+                if (child.textContent.length > 0) empty = false
+            })
+            return empty
+        }
+        
+        // Create a new prompt snippet node
+        function createPromptSnippet(schema) {
+            const title = schema.nodes.promptSnippetTitle.create()
+            const body = schema.nodes.promptSnippetBody.create()
+            return schema.nodes.promptSnippet.create({ expanded: true }, [title, body])
+        }
+        
         // ============================================
-        // TaskCardList Node
+        // Task Card Nodes
         // ============================================
+        
         const TaskCardList = Node.create({
             name: 'taskCardList',
             group: 'block',
             content: 'taskCard+',
-            
-            parseHTML() {
-                return [{ tag: 'div[data-type="task-card-list"]' }]
-            },
-            
+            parseHTML() { return [{ tag: 'div[data-type="task-card-list"]' }] },
             renderHTML({ HTMLAttributes }) {
                 return ['div', mergeAttributes(HTMLAttributes, { 
                     'data-type': 'task-card-list',
@@ -545,9 +594,6 @@
             }
         })
         
-        // ============================================
-        // TaskCard Node
-        // ============================================
         const TaskCard = Node.create({
             name: 'taskCard',
             group: 'block',
@@ -564,9 +610,7 @@
                 }
             },
             
-            parseHTML() {
-                return [{ tag: 'div[data-type="task-card"]' }]
-            },
+            parseHTML() { return [{ tag: 'div[data-type="task-card"]' }] },
             
             renderHTML({ node, HTMLAttributes }) {
                 return ['div', mergeAttributes(HTMLAttributes, { 
@@ -580,17 +624,14 @@
             
             addCommands() {
                 return {
-                    // Insert a new task card (or list with task card if not in one)
                     insertTaskCard: () => ({ chain, state, editor }) => {
                         const { schema, selection: { $from } } = state
                         const taskCard = createTaskCard(schema)
                         
-                        // If already in a task card list, insert after current task
                         if (editor.isActive('taskCardList')) {
                             const ancestor = findAncestor($from, 'taskCard')
                             if (ancestor) {
                                 const insertPos = $from.after(ancestor.depth)
-                                // Position: +1 into taskCard, +1 into title
                                 return chain()
                                     .insertContentAt(insertPos, taskCard.toJSON())
                                     .setTextSelection(insertPos + 2)
@@ -598,13 +639,10 @@
                             }
                         }
                         
-                        // Create new list - replace current block entirely
-                        // Use before/after to get positions OUTSIDE the block (not inside)
                         const blockStart = $from.before($from.depth)
                         const blockEnd = $from.after($from.depth)
                         const taskCardList = schema.nodes.taskCardList.create(null, [taskCard])
                         
-                        // Position: +1 into list, +1 into taskCard, +1 into title
                         return chain()
                             .deleteRange({ from: blockStart, to: blockEnd })
                             .insertContentAt(blockStart, taskCardList.toJSON())
@@ -612,8 +650,6 @@
                             .run()
                     },
                     
-                    // Toggle the checked state of the current task card
-                    // Uses direct transaction since TipTap lacks ancestor attribute commands
                     toggleTaskCardChecked: () => ({ tr, state, dispatch }) => {
                         const ancestor = findAncestor(state.selection.$from, 'taskCard')
                         if (!ancestor) return false
@@ -633,10 +669,8 @@
             
             addKeyboardShortcuts() {
                 return {
-                    // Toggle completion with Cmd/Ctrl+Enter
                     'Mod-Enter': () => this.editor.commands.toggleTaskCardChecked(),
                     
-                    // Enter: create new task or exit if empty
                     'Enter': ({ editor }) => {
                         if (!editor.isActive('taskCard')) return false
                         
@@ -647,8 +681,11 @@
                         
                         const { node: taskCard, depth: taskCardDepth } = taskAncestor
                         
-                        // If task is empty, exit task card formatting
                         if (isTaskCardEmpty(taskCard)) {
+                            // Hide action bar immediately when exiting task card
+                            const actionBar = document.getElementById('task-action-bar')
+                            if (actionBar) actionBar.classList.remove('visible')
+                            
                             const listAncestor = findAncestor($from, 'taskCardList')
                             if (!listAncestor) return false
                             
@@ -656,7 +693,6 @@
                             const listEnd = $from.after(listDepth)
                             
                             if (list.childCount === 1) {
-                                // Only task in list - replace entire list with paragraph
                                 const listStart = $from.before(listDepth)
                                 return editor.chain()
                                     .deleteRange({ from: listStart, to: listEnd })
@@ -664,7 +700,6 @@
                                     .setTextSelection(listStart + 1)
                                     .run()
                             } else {
-                                // Multiple tasks - delete this one and insert paragraph after list
                                 const taskStart = $from.before(taskCardDepth)
                                 const taskEnd = $from.after(taskCardDepth)
                                 return editor.chain()
@@ -675,15 +710,13 @@
                             }
                         }
                         
-                        // Not empty - create new task after current
                         const insertPos = $from.after(taskCardDepth)
                         return editor.chain()
                             .insertContentAt(insertPos, createTaskCard(state.schema).toJSON())
-                            .setTextSelection(insertPos + 2) // +1 taskCard, +1 title
+                            .setTextSelection(insertPos + 2)
                             .run()
                     },
                     
-                    // Tab: move from title to description (create if doesn't exist)
                     'Tab': ({ editor }) => {
                         if (!editor.isActive('taskCard')) return false
                         
@@ -696,7 +729,6 @@
                         const taskCard = $from.node(taskCardDepth)
                         const taskCardStart = $from.before(taskCardDepth)
                         
-                        // Check if description exists
                         let hasDescription = false
                         let descPos = null
                         let offset = 1
@@ -710,21 +742,18 @@
                         })
                         
                         if (hasDescription && descPos) {
-                            // Move to existing description
                             return editor.commands.setTextSelection(descPos)
                         }
                         
-                        // Create new description at end of taskCard
-                        const insertPos = $from.after(taskCardDepth) - 1 // Before taskCard closes
+                        const insertPos = $from.after(taskCardDepth) - 1
                         const newDesc = state.schema.nodes.taskCardDescription.create()
                         
                         return editor.chain()
                             .insertContentAt(insertPos, newDesc.toJSON())
-                            .setTextSelection(insertPos + 1) // Inside new description
+                            .setTextSelection(insertPos + 1)
                             .run()
                     },
                     
-                    // Shift+Tab: move from description to title
                     'Shift-Tab': ({ editor }) => {
                         if (!editor.isActive('taskCard')) return false
                         
@@ -733,17 +762,13 @@
                         if (!descAncestor) return false
                         
                         const taskCardStart = $from.before(descAncestor.depth - 1)
-                        // Title position: +1 (into taskCard), +1 (into title)
                         return editor.commands.setTextSelection(taskCardStart + 2)
                     },
                     
-                    // Backspace at start of empty title: exit task formatting
                     'Backspace': ({ editor }) => {
                         if (!editor.isActive('taskCard')) return false
                         
                         const { selection, selection: { $from } } = editor.state
-                        
-                        // Only handle empty selection at start of content
                         if (!selection.empty || $from.parentOffset !== 0) return false
                         
                         const titleAncestor = findAncestor($from, 'taskCardTitle')
@@ -751,9 +776,11 @@
                         
                         const taskCardDepth = titleAncestor.depth - 1
                         const taskCard = $from.node(taskCardDepth)
-                        
-                        // Only handle if task is empty
                         if (!isTaskCardEmpty(taskCard)) return false
+                        
+                        // Hide action bar immediately when exiting task card
+                        const actionBar = document.getElementById('task-action-bar')
+                        if (actionBar) actionBar.classList.remove('visible')
                         
                         const listAncestor = findAncestor($from, 'taskCardList')
                         if (!listAncestor) return false
@@ -762,7 +789,6 @@
                         const listEnd = $from.after(listDepth)
                         
                         if (list.childCount === 1) {
-                            // Only task - replace list with paragraph
                             const listStart = $from.before(listDepth)
                             return editor.chain()
                                 .deleteRange({ from: listStart, to: listEnd })
@@ -770,7 +796,6 @@
                                 .setTextSelection(listStart + 1)
                                 .run()
                         } else {
-                            // Delete just this task and insert paragraph after list
                             const taskStart = $from.before(taskCardDepth)
                             const taskEnd = $from.after(taskCardDepth)
                             return editor.chain()
@@ -783,14 +808,12 @@
                 }
             },
             
-            // Custom node view for interactive checkbox
             addNodeView() {
                 return ({ node, getPos, editor }) => {
                     const dom = document.createElement('div')
                     dom.className = `task-card ${node.attrs.checked ? 'is-completed' : ''}`
                     dom.setAttribute('data-type', 'task-card')
                     
-                    // Checkbox
                     const checkbox = document.createElement('div')
                     checkbox.className = 'task-card-checkbox'
                     checkbox.setAttribute('contenteditable', 'false')
@@ -813,7 +836,6 @@
                         }
                     })
                     
-                    // Content area (managed by TipTap)
                     const content = document.createElement('div')
                     content.className = 'task-card-content'
                     
@@ -833,17 +855,12 @@
             }
         })
         
-        // TaskCardTitle
         const TaskCardTitle = Node.create({
             name: 'taskCardTitle',
             group: 'block',
             content: 'inline*',
             defining: true,
-            
-            parseHTML() {
-                return [{ tag: 'div[data-type="task-card-title"]' }]
-            },
-            
+            parseHTML() { return [{ tag: 'div[data-type="task-card-title"]' }] },
             renderHTML({ HTMLAttributes }) {
                 return ['div', mergeAttributes(HTMLAttributes, { 
                     'data-type': 'task-card-title',
@@ -853,21 +870,16 @@
             }
         })
         
-        // TaskCardDescription
         const TaskCardDescription = Node.create({
             name: 'taskCardDescription',
             group: 'block',
             content: 'inline*',
-            
-            parseHTML() {
-                return [{ tag: 'div[data-type="task-card-description"]' }]
-            },
-            
+            parseHTML() { return [{ tag: 'div[data-type="task-card-description"]' }] },
             renderHTML({ HTMLAttributes }) {
                 return ['div', mergeAttributes(HTMLAttributes, { 
                     'data-type': 'task-card-description',
                     'class': 'task-card-description',
-                    'data-placeholder': 'Press Tab for description'
+                    'data-placeholder': 'Add notes...'
                 }), 0]
             }
         })
@@ -876,23 +888,11 @@
         // Prompt Snippet Nodes
         // ============================================
         
-        // Helper: Create a new empty prompt snippet node
-        function createPromptSnippet(schema) {
-            const title = schema.nodes.promptSnippetTitle.create()
-            const body = schema.nodes.promptSnippetBody.create()
-            return schema.nodes.promptSnippet.create({ expanded: true }, [title, body])
-        }
-        
-        // PromptSnippetList Node
         const PromptSnippetList = Node.create({
             name: 'promptSnippetList',
             group: 'block',
             content: 'promptSnippet+',
-            
-            parseHTML() {
-                return [{ tag: 'div[data-type="prompt-snippet-list"]' }]
-            },
-            
+            parseHTML() { return [{ tag: 'div[data-type="prompt-snippet-list"]' }] },
             renderHTML({ HTMLAttributes }) {
                 return ['div', mergeAttributes(HTMLAttributes, { 
                     'data-type': 'prompt-snippet-list',
@@ -901,16 +901,6 @@
             }
         })
         
-        // Helper: Check if a prompt snippet is empty (no text in title or body)
-        function isPromptSnippetEmpty(snippet) {
-            let empty = true
-            snippet.forEach(child => {
-                if (child.textContent.length > 0) empty = false
-            })
-            return empty
-        }
-        
-        // PromptSnippet Node
         const PromptSnippet = Node.create({
             name: 'promptSnippet',
             group: 'block',
@@ -932,9 +922,7 @@
                 }
             },
             
-            parseHTML() {
-                return [{ tag: 'div[data-type="prompt-snippet"]' }]
-            },
+            parseHTML() { return [{ tag: 'div[data-type="prompt-snippet"]' }] },
             
             renderHTML({ node, HTMLAttributes }) {
                 const classes = ['prompt-snippet']
@@ -948,12 +936,10 @@
             
             addCommands() {
                 return {
-                    // Insert a new prompt snippet (or list with snippet if not in one)
                     insertPromptSnippet: () => ({ chain, state, editor }) => {
                         const { schema, selection: { $from } } = state
                         const snippet = createPromptSnippet(schema)
                         
-                        // If already in a prompt snippet list, insert after current snippet
                         if (editor.isActive('promptSnippetList')) {
                             const ancestor = findAncestor($from, 'promptSnippet')
                             if (ancestor) {
@@ -965,7 +951,6 @@
                             }
                         }
                         
-                        // Create new list - replace current block
                         const blockStart = $from.before($from.depth)
                         const blockEnd = $from.after($from.depth)
                         const snippetList = schema.nodes.promptSnippetList.create(null, [snippet])
@@ -977,8 +962,7 @@
                             .run()
                     },
                     
-                    // Toggle expanded/collapsed state of current prompt snippet
-                    togglePromptSnippetExpanded: () => ({ tr, state, dispatch, editor }) => {
+                    togglePromptSnippetExpanded: () => ({ tr, state, dispatch }) => {
                         const ancestor = findAncestor(state.selection.$from, 'promptSnippet')
                         if (!ancestor) return false
                         
@@ -991,7 +975,6 @@
                                 expanded: newExpanded
                             })
                             
-                            // If collapsing, move cursor out of the snippet
                             if (!newExpanded) {
                                 const afterSnippet = state.selection.$from.after(ancestor.depth)
                                 tr.setSelection(state.selection.constructor.near(tr.doc.resolve(afterSnippet)))
@@ -1002,12 +985,10 @@
                         return true
                     },
                     
-                    // Copy prompt snippet content to clipboard
                     copyPromptSnippet: () => ({ state }) => {
                         const ancestor = findAncestor(state.selection.$from, 'promptSnippet')
                         if (!ancestor) return false
                         
-                        // Get text content from the body only
                         let bodyText = ''
                         ancestor.node.forEach(child => {
                             if (child.type.name === 'promptSnippetBody') {
@@ -1021,24 +1002,18 @@
                         return true
                     },
                     
-                    // Expand a specific prompt snippet by position
                     expandPromptSnippetAt: (pos) => ({ tr, state, dispatch }) => {
                         const node = state.doc.nodeAt(pos)
                         if (!node || node.type.name !== 'promptSnippet') return false
                         
                         if (dispatch) {
-                            tr.setNodeMarkup(pos, undefined, {
-                                ...node.attrs,
-                                expanded: true
-                            })
-                            // Position cursor in the title
+                            tr.setNodeMarkup(pos, undefined, { ...node.attrs, expanded: true })
                             tr.setSelection(state.selection.constructor.near(tr.doc.resolve(pos + 2)))
                             dispatch(tr)
                         }
                         return true
                     },
                     
-                    // Toggle completed state of a prompt snippet at position
                     togglePromptSnippetCompleted: (pos) => ({ tr, state, dispatch }) => {
                         const node = state.doc.nodeAt(pos)
                         if (!node || node.type.name !== 'promptSnippet') return false
@@ -1057,7 +1032,6 @@
             
             addKeyboardShortcuts() {
                 return {
-                    // Escape: exit empty snippet, or collapse if not empty
                     'Escape': ({ editor }) => {
                         if (!editor.isActive('promptSnippet')) return false
                         
@@ -1065,7 +1039,6 @@
                         const ancestor = findAncestor($from, 'promptSnippet')
                         if (!ancestor) return false
                         
-                        // If snippet is empty, exit it
                         if (isPromptSnippetEmpty(ancestor.node)) {
                             const listAncestor = findAncestor($from, 'promptSnippetList')
                             if (!listAncestor) return false
@@ -1085,7 +1058,6 @@
                             } else {
                                 const snippetSize = snippetEnd - snippetStart
                                 const newListEnd = listEnd - snippetSize
-                                
                                 return editor.chain()
                                     .deleteRange({ from: snippetStart, to: snippetEnd })
                                     .insertContentAt(newListEnd, { type: 'paragraph' })
@@ -1094,12 +1066,10 @@
                             }
                         }
                         
-                        // Otherwise just collapse if expanded
                         if (!ancestor.node.attrs.expanded) return false
                         return editor.commands.togglePromptSnippetExpanded()
                     },
                     
-                    // Enter: move to body from title, or collapse & new snippet from body
                     'Enter': ({ editor }) => {
                         if (!editor.isActive('promptSnippet')) return false
                         
@@ -1110,7 +1080,6 @@
                         
                         const { node: snippet, depth: snippetDepth } = snippetAncestor
                         
-                        // If snippet is empty, exit snippet formatting
                         if (isPromptSnippetEmpty(snippet)) {
                             const listAncestor = findAncestor($from, 'promptSnippetList')
                             if (!listAncestor) return false
@@ -1120,19 +1089,16 @@
                             const listEnd = $from.after(listDepth)
                             
                             if (list.childCount === 1) {
-                                // Only snippet in list - replace entire list with paragraph
                                 return editor.chain()
                                     .deleteRange({ from: listStart, to: listEnd })
                                     .insertContentAt(listStart, { type: 'paragraph' })
                                     .setTextSelection(listStart + 1)
                                     .run()
                             } else {
-                                // Multiple snippets - delete empty snippet and insert paragraph after list
                                 const snippetStart = $from.before(snippetDepth)
                                 const snippetEnd = $from.after(snippetDepth)
                                 const snippetSize = snippetEnd - snippetStart
                                 const newListEnd = listEnd - snippetSize
-                                
                                 return editor.chain()
                                     .deleteRange({ from: snippetStart, to: snippetEnd })
                                     .insertContentAt(newListEnd, { type: 'paragraph' })
@@ -1141,12 +1107,10 @@
                             }
                         }
                         
-                        // Check if we're in title or body
                         const titleAncestor = findAncestor($from, 'promptSnippetTitle')
                         const bodyAncestor = findAncestor($from, 'promptSnippetBody')
                         
                         if (titleAncestor) {
-                            // In title - move to body
                             const snippetStart = $from.before(snippetDepth)
                             let bodyPos = null
                             let offset = 1
@@ -1162,11 +1126,9 @@
                                 return editor.commands.setTextSelection(bodyPos)
                             }
                         } else if (bodyAncestor) {
-                            // In body - collapse current snippet and create new one
                             const pos = $from.before(snippetDepth)
                             const insertPos = $from.after(snippetDepth)
                             
-                            // Collapse current snippet
                             editor.view.dispatch(
                                 editor.state.tr.setNodeMarkup(pos, undefined, {
                                     ...snippet.attrs,
@@ -1174,7 +1136,6 @@
                                 })
                             )
                             
-                            // Insert new snippet after
                             return editor.chain()
                                 .insertContentAt(insertPos, createPromptSnippet(state.schema).toJSON())
                                 .setTextSelection(insertPos + 2)
@@ -1184,7 +1145,6 @@
                         return false
                     },
                     
-                    // Tab: move from title to body
                     'Tab': ({ editor }) => {
                         if (!editor.isActive('promptSnippet')) return false
                         
@@ -1197,7 +1157,6 @@
                         const snippet = $from.node(snippetDepth)
                         const snippetStart = $from.before(snippetDepth)
                         
-                        // Find body position
                         let bodyPos = null
                         let offset = 1
                         snippet.forEach(child => {
@@ -1214,7 +1173,6 @@
                         return false
                     },
                     
-                    // Shift+Tab: move from body to title
                     'Shift-Tab': ({ editor }) => {
                         if (!editor.isActive('promptSnippet')) return false
                         
@@ -1226,13 +1184,10 @@
                         return editor.commands.setTextSelection(snippetStart + 2)
                     },
                     
-                    // Backspace at start of empty title: exit snippet formatting
                     'Backspace': ({ editor }) => {
                         if (!editor.isActive('promptSnippet')) return false
                         
                         const { selection, selection: { $from } } = editor.state
-                        
-                        // Only handle empty selection at start of content
                         if (!selection.empty || $from.parentOffset !== 0) return false
                         
                         const titleAncestor = findAncestor($from, 'promptSnippetTitle')
@@ -1240,8 +1195,6 @@
                         
                         const snippetDepth = titleAncestor.depth - 1
                         const snippet = $from.node(snippetDepth)
-                        
-                        // Only handle if snippet is empty
                         if (!isPromptSnippetEmpty(snippet)) return false
                         
                         const listAncestor = findAncestor($from, 'promptSnippetList')
@@ -1252,19 +1205,16 @@
                         const listEnd = $from.after(listDepth)
                         
                         if (list.childCount === 1) {
-                            // Only snippet - replace list with paragraph
                             return editor.chain()
                                 .deleteRange({ from: listStart, to: listEnd })
                                 .insertContentAt(listStart, { type: 'paragraph' })
                                 .setTextSelection(listStart + 1)
                                 .run()
                         } else {
-                            // Multiple snippets - delete empty snippet and insert paragraph after list
                             const snippetStart = $from.before(snippetDepth)
                             const snippetEnd = $from.after(snippetDepth)
                             const snippetSize = snippetEnd - snippetStart
                             const newListEnd = listEnd - snippetSize
-                            
                             return editor.chain()
                                 .deleteRange({ from: snippetStart, to: snippetEnd })
                                 .insertContentAt(newListEnd, { type: 'paragraph' })
@@ -1273,50 +1223,6 @@
                         }
                     },
                     
-                    // Delete key - same behavior as Backspace for empty snippets
-                    'Delete': ({ editor }) => {
-                        if (!editor.isActive('promptSnippet')) return false
-                        
-                        const { selection, selection: { $from } } = editor.state
-                        const titleAncestor = findAncestor($from, 'promptSnippetTitle')
-                        if (!titleAncestor) return false
-                        
-                        const snippetDepth = titleAncestor.depth - 1
-                        const snippet = $from.node(snippetDepth)
-                        
-                        // Only handle if snippet is empty
-                        if (!isPromptSnippetEmpty(snippet)) return false
-                        
-                        const listAncestor = findAncestor($from, 'promptSnippetList')
-                        if (!listAncestor) return false
-                        
-                        const { node: list, depth: listDepth } = listAncestor
-                        const listStart = $from.before(listDepth)
-                        const listEnd = $from.after(listDepth)
-                        
-                        if (list.childCount === 1) {
-                            // Only snippet - replace list with paragraph
-                            return editor.chain()
-                                .deleteRange({ from: listStart, to: listEnd })
-                                .insertContentAt(listStart, { type: 'paragraph' })
-                                .setTextSelection(listStart + 1)
-                                .run()
-                        } else {
-                            // Multiple snippets - delete empty snippet and insert paragraph after list
-                            const snippetStart = $from.before(snippetDepth)
-                            const snippetEnd = $from.after(snippetDepth)
-                            const snippetSize = snippetEnd - snippetStart
-                            const newListEnd = listEnd - snippetSize
-                            
-                            return editor.chain()
-                                .deleteRange({ from: snippetStart, to: snippetEnd })
-                                .insertContentAt(newListEnd, { type: 'paragraph' })
-                                .setTextSelection(newListEnd + 1)
-                                .run()
-                        }
-                    },
-                    
-                    // Mod+Enter: quick collapse
                     'Mod-Enter': ({ editor }) => {
                         if (!editor.isActive('promptSnippet')) return false
                         return editor.commands.togglePromptSnippetExpanded()
@@ -1324,7 +1230,6 @@
                 }
             },
             
-            // Custom node view for interactive collapsed/expanded states
             addNodeView() {
                 return ({ node, getPos, editor }) => {
                     const dom = document.createElement('div')
@@ -1339,20 +1244,6 @@
                     dom.className = getClassName(node)
                     dom.setAttribute('data-type', 'prompt-snippet')
                     
-                    // Helper to delete this snippet
-                    function deleteSnippet() {
-                        const pos = getPos()
-                        if (typeof pos === 'number') {
-                            const currentNode = editor.state.doc.nodeAt(pos)
-                            if (currentNode) {
-                                editor.chain()
-                                    .deleteRange({ from: pos, to: pos + currentNode.nodeSize })
-                                    .run()
-                            }
-                        }
-                    }
-                    
-                    // Checkbox (toggles completed state, like task card)
                     const checkbox = document.createElement('div')
                     checkbox.className = 'prompt-snippet-checkbox'
                     checkbox.setAttribute('contenteditable', 'false')
@@ -1366,20 +1257,16 @@
                         }
                     })
                     
-                    // Content area (managed by TipTap)
                     const content = document.createElement('div')
                     content.className = 'prompt-snippet-content'
                     
-                    // Preview area (shown when collapsed)
                     const preview = document.createElement('div')
                     preview.className = 'prompt-snippet-preview'
                     
-                    // Copy feedback toast
                     const feedback = document.createElement('div')
                     feedback.className = 'prompt-snippet-copy-feedback'
                     feedback.textContent = 'Copied!'
                     
-                    // Helper to create button with icon
                     function createButton(iconHtml, label, className = '') {
                         const btn = document.createElement('button')
                         btn.className = `prompt-snippet-action ${className}`.trim()
@@ -1388,7 +1275,6 @@
                         return btn
                     }
                     
-                    // Actions container (positioned absolutely in top right)
                     const actions = document.createElement('div')
                     actions.className = 'prompt-snippet-actions'
                     actions.setAttribute('contenteditable', 'false')
@@ -1439,75 +1325,19 @@
                     deleteBtn.addEventListener('mousedown', (e) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        deleteSnippet()
+                        const pos = getPos()
+                        if (typeof pos === 'number') {
+                            const currentNode = editor.state.doc.nodeAt(pos)
+                            if (currentNode) {
+                                editor.chain().deleteRange({ from: pos, to: pos + currentNode.nodeSize }).run()
+                            }
+                        }
                     })
                     
                     actions.appendChild(doneBtn)
                     actions.appendChild(copyBtn)
                     actions.appendChild(deleteBtn)
                     
-                    // Right-click context menu for delete
-                    dom.addEventListener('contextmenu', (e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        
-                        // Remove any existing context menu
-                        const existingMenu = document.querySelector('.prompt-snippet-context-menu')
-                        if (existingMenu) existingMenu.remove()
-                        
-                        const menu = document.createElement('div')
-                        menu.className = 'prompt-snippet-context-menu'
-                        menu.style.cssText = `
-                            position: fixed;
-                            left: ${e.clientX}px;
-                            top: ${e.clientY}px;
-                            background: var(--writa-card-bg, #fff);
-                            border: 1px solid var(--writa-border-color, rgba(128,128,128,0.2));
-                            border-radius: 8px;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                            padding: 4px;
-                            z-index: 1000;
-                        `
-                        
-                        const deleteOption = document.createElement('button')
-                        deleteOption.style.cssText = `
-                            display: block;
-                            width: 100%;
-                            padding: 8px 16px;
-                            border: none;
-                            background: transparent;
-                            color: #FF3B30;
-                            font-size: 13px;
-                            text-align: left;
-                            cursor: pointer;
-                            border-radius: 4px;
-                        `
-                        deleteOption.textContent = 'Delete Snippet'
-                        deleteOption.addEventListener('mouseenter', () => {
-                            deleteOption.style.background = 'rgba(255,59,48,0.1)'
-                        })
-                        deleteOption.addEventListener('mouseleave', () => {
-                            deleteOption.style.background = 'transparent'
-                        })
-                        deleteOption.addEventListener('click', () => {
-                            menu.remove()
-                            deleteSnippet()
-                        })
-                        
-                        menu.appendChild(deleteOption)
-                        document.body.appendChild(menu)
-                        
-                        // Close menu on click outside
-                        const closeMenu = (evt) => {
-                            if (!menu.contains(evt.target)) {
-                                menu.remove()
-                                document.removeEventListener('mousedown', closeMenu)
-                            }
-                        }
-                        setTimeout(() => document.addEventListener('mousedown', closeMenu), 0)
-                    })
-                    
-                    // Preview actions (for collapsed state)
                     const previewActions = document.createElement('div')
                     previewActions.className = 'prompt-snippet-preview-actions'
                     previewActions.setAttribute('contenteditable', 'false')
@@ -1549,50 +1379,6 @@
                     previewActions.appendChild(editBtn)
                     previewActions.appendChild(previewCopyBtn)
                     
-                    // Click handler for collapsed state - copy to clipboard
-                    dom.addEventListener('click', (e) => {
-                        const pos = getPos()
-                        if (typeof pos !== 'number') return
-                        
-                        const currentNode = editor.state.doc.nodeAt(pos)
-                        if (!currentNode || currentNode.type.name !== 'promptSnippet') return
-                        
-                        // Only handle clicks when collapsed and not on buttons
-                        if (!currentNode.attrs.expanded && !e.target.closest('.prompt-snippet-action')) {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            
-                            let bodyText = ''
-                            currentNode.forEach(child => {
-                                if (child.type.name === 'promptSnippetBody') {
-                                    bodyText = child.textContent
-                                }
-                            })
-                            
-                            if (bodyText) {
-                                navigator.clipboard.writeText(bodyText)
-                                feedback.classList.add('visible')
-                                setTimeout(() => feedback.classList.remove('visible'), 1500)
-                            }
-                        }
-                    })
-                    
-                    // Mousedown handler to prevent cursor placement in collapsed state
-                    dom.addEventListener('mousedown', (e) => {
-                        const pos = getPos()
-                        if (typeof pos !== 'number') return
-                        
-                        const currentNode = editor.state.doc.nodeAt(pos)
-                        if (!currentNode || currentNode.type.name !== 'promptSnippet') return
-                        
-                        // Prevent cursor placement when collapsed (except on action buttons)
-                        if (!currentNode.attrs.expanded && !e.target.closest('.prompt-snippet-action')) {
-                            e.preventDefault()
-                            e.stopPropagation()
-                        }
-                    })
-                    
-                    // Build preview content
                     function updatePreview(snippetNode) {
                         let titleText = ''
                         let bodyText = ''
@@ -1634,11 +1420,8 @@
                         contentDOM: content,
                         update: (updatedNode) => {
                             if (updatedNode.type.name !== 'promptSnippet') return false
-                            
                             dom.className = getClassName(updatedNode)
-                            
                             updatePreview(updatedNode)
-                            
                             return true
                         }
                     }
@@ -1646,17 +1429,12 @@
             }
         })
         
-        // PromptSnippetTitle
         const PromptSnippetTitle = Node.create({
             name: 'promptSnippetTitle',
             group: 'block',
             content: 'inline*',
             defining: true,
-            
-            parseHTML() {
-                return [{ tag: 'div[data-type="prompt-snippet-title"]' }]
-            },
-            
+            parseHTML() { return [{ tag: 'div[data-type="prompt-snippet-title"]' }] },
             renderHTML({ HTMLAttributes }) {
                 return ['div', mergeAttributes(HTMLAttributes, { 
                     'data-type': 'prompt-snippet-title',
@@ -1665,16 +1443,11 @@
             }
         })
         
-        // PromptSnippetBody
         const PromptSnippetBody = Node.create({
             name: 'promptSnippetBody',
             group: 'block',
             content: 'inline*',
-            
-            parseHTML() {
-                return [{ tag: 'div[data-type="prompt-snippet-body"]' }]
-            },
-            
+            parseHTML() { return [{ tag: 'div[data-type="prompt-snippet-body"]' }] },
             renderHTML({ HTMLAttributes }) {
                 return ['div', mergeAttributes(HTMLAttributes, { 
                     'data-type': 'prompt-snippet-body',
@@ -1684,169 +1457,153 @@
         })
         
         // ============================================
-        // Editor Setup
+        // Initialize Yjs for a document
         // ============================================
-        
-        function sendToSwift(msg) {
-            if (window.webkit?.messageHandlers?.tiptap) {
-                window.webkit.messageHandlers.tiptap.postMessage(msg);
+        function initializeYjs(documentId) {
+            // Cleanup previous instance
+            if (wsProvider) {
+                sendToSwift({ type: 'debug', message: 'Destroying previous wsProvider' })
+                wsProvider.destroy()
             }
-        }
-        
-        function getState() {
-            if (!window.editor) return {};
-            var e = window.editor;
-            return {
-                isBold: e.isActive('bold'),
-                isItalic: e.isActive('italic'),
-                isUnderline: e.isActive('underline'),
-                isStrike: e.isActive('strike'),
-                isCode: e.isActive('code'),
-                isCodeBlock: e.isActive('codeBlock'),
-                isBlockquote: e.isActive('blockquote'),
-                isBulletList: e.isActive('bulletList'),
-                isOrderedList: e.isActive('orderedList'),
-                isTaskList: e.isActive('taskList'),
-                isTaskCard: e.isActive('taskCard'),
-                isPromptSnippet: e.isActive('promptSnippet'),
-                isHighlight: (() => {
-                    // Use TipTap's built-in isActive for marks - it handles cursor position correctly
-                    return e.isActive('highlight');
-                })(),
-                highlightColor: (() => {
-                    const { state } = editor;
-                    const { $from, $to } = state.selection;
-                    let color = '#fef08a'; // Default yellow
-                    
-                    // Get marks at the start of selection
-                    const marks = $from.marks();
-                    const highlightMark = marks.find(mark => mark.type.name === 'highlight');
-                    if (highlightMark && highlightMark.attrs.color) {
-                        color = highlightMark.attrs.color;
-                    } else {
-                        // Fallback: check nodes in selection
-                        state.doc.nodesBetween($from.pos, $to.pos, (node) => {
-                            if (node.marks) {
-                                const mark = node.marks.find(m => m.type.name === 'highlight');
-                                if (mark && mark.attrs.color) {
-                                    color = mark.attrs.color;
-                                    return false; // Stop searching
-                                }
-                            }
-                        });
+            if (indexeddbProvider) {
+                // Log current content before destroying
+                if (ydoc) {
+                    const content = ydoc.getXmlFragment('content')
+                    sendToSwift({ type: 'debug', message: `Destroying IndexedDB provider. Current content: ${content.length} items` })
+                }
+                indexeddbProvider.destroy()
+            }
+            if (ydoc) {
+                sendToSwift({ type: 'debug', message: 'Destroying previous ydoc' })
+                ydoc.destroy()
+            }
+            
+            DOCUMENT_ID = documentId
+            const roomName = `doc-${documentId}`
+            
+            sendToSwift({ type: 'debug', message: `Initializing Yjs for room: ${roomName}` })
+            
+            // Create new Yjs document
+            ydoc = new Y.Doc()
+            
+            // Initialize metadata with defaults if empty
+            const meta = ydoc.getMap('meta')
+            
+            // Local persistence (IndexedDB) for offline support
+            indexeddbProvider = new IndexeddbPersistence(roomName, ydoc)
+            
+            // Track content changes (reduced logging - only log significant changes)
+            let lastContentLength = 0
+            ydoc.on('update', (update, origin) => {
+                const content = ydoc.getXmlFragment('content')
+                // Only log if content length changed significantly
+                if (content.length !== lastContentLength) {
+                    lastContentLength = content.length
+                    // Uncomment for debugging: sendToSwift({ type: 'debug', message: `Yjs content: ${content.length} items` })
+                }
+            })
+            
+            indexeddbProvider.on('synced', () => {
+                sendToSwift({ type: 'debug', message: 'IndexedDB synced' })
+                
+                // Initialize metadata defaults after loading from IndexedDB
+                if (!meta.get('createdAt')) {
+                    ydoc.transact(() => {
+                        meta.set('createdAt', Date.now())
+                        meta.set('updatedAt', Date.now())
+                        meta.set('isDeleted', false)
+                        meta.set('isFavorite', false)
+                        meta.set('isPinned', false)
+                    })
+                }
+                
+                const content = ydoc.getXmlFragment('content')
+                sendToSwift({ type: 'debug', message: `IndexedDB: Content fragment length: ${content.length}` })
+                
+                // Debug: log what's in the fragment
+                try {
+                    const fragmentJSON = content.toJSON()
+                    sendToSwift({ type: 'debug', message: `IndexedDB content: ${JSON.stringify(fragmentJSON).slice(0, 200)}` })
+                } catch (e) {
+                    sendToSwift({ type: 'debug', message: `IndexedDB content parse error: ${e.message}` })
+                }
+            })
+            
+            // WebSocket connection to PartyKit using y-partykit provider
+            sendToSwift({ type: 'debug', message: `Connecting to PartyKit host: ${PARTYKIT_HOST}, room: ${roomName}` })
+            
+            wsProvider = new YPartyKitProvider(PARTYKIT_HOST, roomName, ydoc, {
+                connect: true
+            })
+            
+            // Connection status
+            wsProvider.on('status', ({ status }) => {
+                sendToSwift({ type: 'debug', message: `WebSocket status: ${status}` })
+                updateConnectionStatus(status)
+                
+                sendToSwift({
+                    type: 'connectionStatus',
+                    status: status,
+                    documentId: documentId
+                })
+            })
+            
+            // Log when WebSocket syncs (data from server)
+            wsProvider.on('sync', (isSynced) => {
+                sendToSwift({ type: 'debug', message: `WebSocket sync: ${isSynced}` })
+                if (isSynced) {
+                    updateConnectionStatus('connected')
+                    const content = ydoc.getXmlFragment('content')
+                    sendToSwift({ type: 'debug', message: `Server sync: Content fragment length: ${content.length}` })
+                    try {
+                        const fragmentJSON = content.toJSON()
+                        sendToSwift({ type: 'debug', message: `Server content: ${JSON.stringify(fragmentJSON).slice(0, 200)}` })
+                    } catch (e) {
+                        sendToSwift({ type: 'debug', message: `Server content parse error: ${e.message}` })
                     }
-                    
-                    return color;
-                })(),
-                isSubscript: e.isActive('subscript'),
-                isSuperscript: e.isActive('superscript'),
-                headingLevel: e.isActive('heading', { level: 1 }) ? 1 : 
-                              e.isActive('heading', { level: 2 }) ? 2 : 
-                              e.isActive('heading', { level: 3 }) ? 3 : 0,
-                isLink: e.isActive('link'),
-                textAlign: e.isActive({ textAlign: 'left' }) ? 'left' :
-                          e.isActive({ textAlign: 'center' }) ? 'center' :
-                          e.isActive({ textAlign: 'right' }) ? 'right' :
-                          e.isActive({ textAlign: 'justify' }) ? 'justify' : 'left',
-                canUndo: e.can().undo(),
-                canRedo: e.can().redo()
-            };
+                }
+            })
+            
+            // Listen for metadata changes (for native app)
+            meta.observe((event) => {
+                sendToSwift({
+                    type: 'metaChange',
+                    meta: meta.toJSON()
+                })
+            })
+            
+            return ydoc
         }
         
-        // Track previous task card to clean up empty descriptions when leaving
-        let previousTaskCardPos = null;
-        function cleanupEmptyDescriptions(editor) {
-            const { state } = editor;
-            const { doc, schema } = state;
+        // ============================================
+        // Initialize Editor
+        // ============================================
+        function initializeEditor(ydoc) {
+            sendToSwift({ type: 'debug', message: 'Creating TipTap editor with Yjs...' })
             
-            // Find all task cards with empty descriptions and remove them
-            const changes = [];
-            doc.descendants((node, pos) => {
-                if (node.type.name === 'taskCard') {
-                    node.forEach((child, offset) => {
-                        if (child.type.name === 'taskCardDescription' && child.textContent === '') {
-                            // Calculate absolute position of description
-                            const descStart = pos + 1 + offset;
-                            const descEnd = descStart + child.nodeSize;
-                            changes.push({ from: descStart, to: descEnd });
-                        }
-                    });
-                }
-            });
-            
-            // Apply deletions in reverse order to preserve positions
-            if (changes.length > 0) {
-                let tr = state.tr;
-                changes.reverse().forEach(({ from, to }) => {
-                    tr = tr.delete(from, to);
-                });
-                editor.view.dispatch(tr);
-            }
-        }
-        
-        function onSelectionChange(editor) {
-            const { state } = editor;
-            const { $from } = state.selection;
-            
-            // Find current task card position using ProseMirror state
-            let currentTaskCardPos = null;
-            for (let d = $from.depth; d > 0; d--) {
-                if ($from.node(d).type.name === 'taskCard') {
-                    currentTaskCardPos = $from.before(d);
-                    break;
-                }
+            // Cleanup previous editor if exists
+            if (editor) {
+                sendToSwift({ type: 'debug', message: 'Destroying previous editor instance' })
+                editor.destroy()
+                editor = null
             }
             
-            // Position and show/hide floating action bar
-            const actionBar = document.getElementById('task-action-bar');
-            if (actionBar) {
-                if (currentTaskCardPos !== null) {
-                    // Find the DOM element for the focused task card
-                    const sel = window.getSelection();
-                    if (sel && sel.anchorNode) {
-                        // Use numeric constant (1) instead of Node.ELEMENT_NODE to avoid conflict with TipTap's Node import
-                        const focusedCard = sel.anchorNode.nodeType === 1 
-                            ? sel.anchorNode.closest('.task-card')
-                            : sel.anchorNode.parentElement?.closest('.task-card');
-                        if (focusedCard) {
-                            // Position using fixed positioning (viewport-relative)
-                            // getBoundingClientRect() returns viewport coordinates, which matches position: fixed
-                            const cardRect = focusedCard.getBoundingClientRect();
-                            
-                            actionBar.style.top = (cardRect.bottom - 20) + 'px';
-                            actionBar.style.right = (window.innerWidth - cardRect.right + 12) + 'px';
-                            actionBar.classList.add('visible');
-                            
-                            // Store the current task card position for button actions
-                            actionBar.dataset.taskCardPos = currentTaskCardPos;
-                        } else {
-                            actionBar.classList.remove('visible');
-                        }
-                    } else {
-                        actionBar.classList.remove('visible');
-                    }
-                } else {
-                    actionBar.classList.remove('visible');
-                }
+            const editorElement = document.getElementById('editor')
+            if (!editorElement) {
+                sendToSwift({ type: 'debug', message: 'ERROR: Editor element not found!' })
+                return
             }
             
-            // If we left a task card, clean up its empty description
-            if (previousTaskCardPos !== null && previousTaskCardPos !== currentTaskCardPos) {
-                // Delay cleanup to avoid interfering with current operation
-                setTimeout(() => cleanupEmptyDescriptions(editor), 10);
-            }
+            sendToSwift({ type: 'debug', message: `wsProvider exists: ${!!wsProvider}, ydoc exists: ${!!ydoc}` })
             
-            previousTaskCardPos = currentTaskCardPos;
-        }
-        
-        try {
-            sendToSwift({ type: 'debug', message: 'Starting editor initialization...' });
-            
-            const editor = new Editor({
-                element: document.getElementById('editor'),
-                extensions: [
+            try {
+                // Try minimal extensions first to test Collaboration
+                const useCollaboration = true // Toggle for testing
+                
+                const extensions = [
                     StarterKit.configure({
-                        heading: { levels: [1, 2, 3] }
+                        heading: { levels: [1, 2, 3] },
+                        history: useCollaboration ? false : undefined // Disable history when using Collaboration
                     }),
                     Placeholder.configure({ 
                         placeholder: ({ node }) => {
@@ -1860,23 +1617,20 @@
                         showOnlyCurrent: false
                     }),
                     Underline,
-                    Link.configure({
-                        openOnClick: false,
-                        HTMLAttributes: { class: 'link' }
-                    }),
+                    Link.configure({ openOnClick: false, HTMLAttributes: { class: 'link' } }),
                     TaskList,
                     TaskItem.configure({ nested: true }),
+                    // Custom Task Card extensions
                     TaskCardList,
                     TaskCard,
                     TaskCardTitle,
                     TaskCardDescription,
+                    // Custom Prompt Snippet extensions
                     PromptSnippetList,
                     PromptSnippet,
                     PromptSnippetTitle,
                     PromptSnippetBody,
-                    Image.configure({
-                        HTMLAttributes: { class: 'image' }
-                    }),
+                    Image.configure({ HTMLAttributes: { class: 'image' } }),
                     Table.configure({ resizable: true }),
                     TableRow,
                     TableHeader,
@@ -1886,31 +1640,316 @@
                     Subscript,
                     Superscript,
                     TextStyle,
-                    Color
-                ],
-                content: '<h1></h1>',
-                onUpdate: ({ editor }) => {
-                    sendToSwift({
-                        type: 'contentChange',
-                        html: editor.getHTML(),
-                        json: JSON.stringify(editor.getJSON()),
-                        text: editor.getText()
-                    });
-                },
-                onSelectionUpdate: ({ editor }) => {
-                    sendToSwift({ type: 'selectionChange', state: getState() });
-                    onSelectionChange(editor);
+                    Color,
+                ]
+                
+                // Add Collaboration if enabled
+                if (useCollaboration) {
+                    const fragment = ydoc.getXmlFragment('content')
+                    sendToSwift({ type: 'debug', message: `Adding Collaboration extension... Yjs fragment length: ${fragment.length}` })
+                    
+                    // Debug: log Yjs fragment structure
+                    try {
+                        sendToSwift({ type: 'debug', message: `Yjs fragment type: ${fragment.constructor.name}` })
+                    } catch (e) {
+                        sendToSwift({ type: 'debug', message: `Yjs fragment error: ${e.message}` })
+                    }
+                    
+                    // Pass fragment directly instead of document+field
+                    // This avoids internal document.getXmlFragment call that might use different Yjs instance
+                    extensions.push(
+                        Collaboration.configure({
+                            fragment: fragment
+                        })
+                    )
                 }
-            });
+                
+                sendToSwift({ type: 'debug', message: 'Creating Editor instance...' })
+                
+                editor = new Editor({
+                    element: editorElement,
+                    extensions: extensions,
+                    editable: true,
+                    autofocus: 'end',
+                    // Note: Don't set content when using Collaboration - Yjs provides it
+                    
+                    onCreate: ({ editor }) => {
+                        sendToSwift({ type: 'debug', message: `Editor created! Editable: ${editor.isEditable}` })
+                    },
+                    
+                    onUpdate: ({ editor }) => {
+                        // Update Yjs metadata (for server sync)
+                        if (ydoc) {
+                            const meta = ydoc.getMap('meta')
+                            ydoc.transact(() => {
+                                meta.set('updatedAt', Date.now())
+                                
+                                // Extract title from first line/heading
+                                const firstBlock = editor.state.doc.firstChild
+                                if (firstBlock) {
+                                    const title = firstBlock.textContent.trim().slice(0, 100)
+                                    if (title && title !== meta.get('title')) {
+                                        meta.set('title', title)
+                                    }
+                                }
+                            })
+                        }
+                        
+                        // Send content change to native app (for document list update)
+                        const text = editor.getText()
+                        const firstLine = text.split('\n')[0]?.trim().slice(0, 100) || ''
+                        
+                        sendToSwift({
+                            type: 'contentChange',
+                            html: editor.getHTML(),
+                            text: text,
+                            title: firstLine,  // For document list
+                        });
+                    },
+                
+                    onSelectionUpdate: ({ editor }) => {
+                        sendToSwift({ type: 'selectionChange', state: getState() });
+                    }
+                });
+                
+                window.editor = editor
+                sendToSwift({ type: 'debug', message: `Editor instance created successfully, editable: ${editor.isEditable}` })
+                
+                // Focus the editor
+                setTimeout(() => {
+                    const isEmpty = editor.isEmpty
+                    sendToSwift({ type: 'debug', message: `Editor isEmpty: ${isEmpty}, HTML: ${editor.getHTML().slice(0, 100)}` })
+                    
+                    // Don't insert content - let Yjs handle the document state
+                    // The Collaboration extension manages content automatically
+                    
+                    editor.commands.focus('end')
+                    sendToSwift({ type: 'debug', message: 'Editor focused' })
+                }, 100)
+                
+                // Task action bar positioning logic
+                let previousTaskCardPos = null
+                
+                function updateTaskActionBar(editor) {
+                    const { state } = editor
+                    const { $from } = state.selection
+                    
+                    // Find if we're inside a task card
+                    let currentTaskCardPos = null
+                    for (let d = $from.depth; d > 0; d--) {
+                        const node = $from.node(d)
+                        if (node.type.name === 'taskCard') {
+                            currentTaskCardPos = $from.before(d)
+                            break
+                        }
+                    }
+                    
+                    // Position and show/hide floating action bar
+                    const actionBar = document.getElementById('task-action-bar')
+                    if (actionBar) {
+                        if (currentTaskCardPos !== null) {
+                            const sel = window.getSelection()
+                            if (sel && sel.anchorNode) {
+                                const focusedCard = sel.anchorNode.nodeType === 1 
+                                    ? sel.anchorNode.closest('.task-card')
+                                    : sel.anchorNode.parentElement?.closest('.task-card')
+                                if (focusedCard) {
+                                    const cardRect = focusedCard.getBoundingClientRect()
+                                    actionBar.style.top = (cardRect.bottom - 20) + 'px'
+                                    actionBar.style.right = (window.innerWidth - cardRect.right + 12) + 'px'
+                                    actionBar.classList.add('visible')
+                                    actionBar.dataset.taskCardPos = currentTaskCardPos
+                                } else {
+                                    actionBar.classList.remove('visible')
+                                }
+                            } else {
+                                actionBar.classList.remove('visible')
+                            }
+                        } else {
+                            actionBar.classList.remove('visible')
+                        }
+                    }
+                    
+                    previousTaskCardPos = currentTaskCardPos
+                }
+                
+                // Hook into selection changes
+                editor.on('selectionUpdate', () => updateTaskActionBar(editor))
+                
+                // Update action bar position on scroll
+                const scrollContainer = document.getElementById('editor')
+                if (scrollContainer) {
+                    scrollContainer.addEventListener('scroll', () => {
+                        const actionBar = document.getElementById('task-action-bar')
+                        if (actionBar && actionBar.classList.contains('visible')) {
+                            updateTaskActionBar(editor)
+                        }
+                    }, { passive: true })
+                }
+                
+                // Set up floating action bar click handlers
+                const actionBar = document.getElementById('task-action-bar')
+                if (actionBar) {
+                    actionBar.addEventListener('mousedown', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        
+                        const action = e.target.closest('[data-action]')?.dataset.action
+                        if (!action) return
+                        
+                        const taskCardPos = parseInt(actionBar.dataset.taskCardPos, 10)
+                        if (isNaN(taskCardPos)) return
+                        
+                        if (action === 'new-task') {
+                            editor.commands.insertTaskCard()
+                        } else if (action === 'description') {
+                            editor.commands.setTextSelection(taskCardPos + 2)
+                            setTimeout(() => {
+                                const { state } = editor
+                                const { $from } = state.selection
+                                const taskCard = $from.node($from.depth - 1)
+                                const taskCardStart = $from.before($from.depth - 1)
+                                
+                                let hasDescription = false
+                                let descPos = null
+                                let offset = 1
+                                if (taskCard) {
+                                    taskCard.forEach(child => {
+                                        if (child.type.name === 'taskCardTitle') {
+                                            offset += child.nodeSize
+                                        } else if (child.type.name === 'taskCardDescription') {
+                                            hasDescription = true
+                                            descPos = taskCardStart + offset + 1
+                                        }
+                                    })
+                                }
+                                
+                                if (hasDescription && descPos) {
+                                    editor.commands.setTextSelection(descPos)
+                                } else {
+                                    const insertPos = $from.after($from.depth - 1) - 1
+                                    const newDesc = state.schema.nodes.taskCardDescription.create()
+                                    editor.chain()
+                                        .insertContentAt(insertPos, newDesc.toJSON())
+                                        .setTextSelection(insertPos + 1)
+                                        .run()
+                                }
+                            }, 10)
+                        } else if (action === 'delete') {
+                            const currentNode = editor.state.doc.nodeAt(taskCardPos)
+                            if (currentNode) {
+                                editor.chain().deleteRange({ from: taskCardPos, to: taskCardPos + currentNode.nodeSize }).run()
+                            }
+                        }
+                    })
+                }
+                
+            } catch (err) {
+                sendToSwift({ type: 'debug', message: `ERROR creating editor: ${err.message}` })
+                console.error('Editor creation error:', err)
+                return
+            }
             
-            window.editor = editor;
-            
+            // ============================================
+            // Editor Bridge (API for native app)
+            // ============================================
             window.editorBridge = {
+                // Initialize with document ID (called by native app)
+                initDocument: (documentId, config = {}) => {
+                    if (config.partyKitHost) PARTYKIT_HOST = config.partyKitHost
+                    if (config.userId) USER_ID = config.userId
+                    if (config.userName) USER_NAME = config.userName
+                    if (config.userColor) USER_COLOR = config.userColor
+                    
+                    initializeYjs(documentId)
+                    initializeEditor(ydoc)
+                },
+                
+                // Get/set metadata (uses Yjs Map)
+                getMeta: () => {
+                    if (!ydoc) return {}
+                    return ydoc.getMap('meta').toJSON()
+                },
+                
+                setMeta: (key, value) => {
+                    if (!ydoc) return
+                    const meta = ydoc.getMap('meta')
+                    ydoc.transact(() => {
+                        meta.set(key, value)
+                        meta.set('updatedAt', Date.now())
+                    })
+                },
+                
+                // Trash document (sets metadata)
+                moveToTrash: () => {
+                    if (!ydoc) return
+                    const meta = ydoc.getMap('meta')
+                    ydoc.transact(() => {
+                        meta.set('isDeleted', true)
+                        meta.set('deletedAt', Date.now())
+                        meta.set('updatedAt', Date.now())
+                    })
+                    sendToSwift({ type: 'debug', message: 'Document moved to trash via Yjs' })
+                },
+                
+                // Restore from trash
+                restore: () => {
+                    if (!ydoc) return
+                    const meta = ydoc.getMap('meta')
+                    ydoc.transact(() => {
+                        meta.set('isDeleted', false)
+                        meta.set('deletedAt', null)
+                        meta.set('updatedAt', Date.now())
+                    })
+                    sendToSwift({ type: 'debug', message: 'Document restored via Yjs' })
+                },
+                
+                // Set workspace
+                setWorkspace: (workspaceId) => {
+                    if (!ydoc) return
+                    const meta = ydoc.getMap('meta')
+                    ydoc.transact(() => {
+                        meta.set('workspaceId', workspaceId)
+                        meta.set('updatedAt', Date.now())
+                    })
+                },
+                
+                // Toggle favorite
+                toggleFavorite: () => {
+                    if (!ydoc) return
+                    const meta = ydoc.getMap('meta')
+                    ydoc.transact(() => {
+                        meta.set('isFavorite', !meta.get('isFavorite'))
+                        meta.set('updatedAt', Date.now())
+                    })
+                },
+                
+                // Toggle pinned
+                togglePinned: () => {
+                    if (!ydoc) return
+                    const meta = ydoc.getMap('meta')
+                    ydoc.transact(() => {
+                        meta.set('isPinned', !meta.get('isPinned'))
+                        meta.set('updatedAt', Date.now())
+                    })
+                },
+                
+                // Set tags
+                setTags: (tags) => {
+                    if (!ydoc) return
+                    const meta = ydoc.getMap('meta')
+                    ydoc.transact(() => {
+                        meta.set('tags', tags)
+                        meta.set('updatedAt', Date.now())
+                    })
+                },
+                
+                // Legacy content methods (for backwards compatibility)
                 setContent: (html) => {
-                    editor.commands.setContent(html || '<h1></h1>');
+                    if (editor) editor.commands.setContent(html || '<h1></h1>');
                 },
                 setContentJSON: (jsonStr) => { 
-                    if (jsonStr) {
+                    if (jsonStr && editor) {
                         try {
                             const json = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
                             editor.commands.setContent(json);
@@ -1919,209 +1958,164 @@
                         }
                     }
                 },
-                getContent: () => editor.getHTML(),
-                getContentJSON: () => JSON.stringify(editor.getJSON()),
-                getText: () => editor.getText(),
+                getContent: () => editor?.getHTML() || '',
+                getContentJSON: () => JSON.stringify(editor?.getJSON() || {}),
+                getText: () => editor?.getText() || '',
                 
-                toggleBold: () => editor.chain().focus().toggleBold().run(),
-                toggleItalic: () => editor.chain().focus().toggleItalic().run(),
-                toggleUnderline: () => editor.chain().focus().toggleUnderline().run(),
-                toggleStrike: () => editor.chain().focus().toggleStrike().run(),
-                toggleCode: () => editor.chain().focus().toggleCode().run(),
-                toggleHighlight: () => editor.chain().focus().toggleHighlight().run(),
-                setHighlightColor: (color) => editor.chain().focus().toggleHighlight({ color }).run(),
-                getHighlightColor: () => {
-                    const { state } = editor;
-                    const { from, to } = state.selection;
-                    let highlightColor = '#fef08a'; // Default yellow
-                    
-                    state.doc.nodesBetween(from, to, (node, pos) => {
-                        if (node.marks) {
-                            const highlightMark = node.marks.find(mark => mark.type.name === 'highlight');
-                            if (highlightMark && highlightMark.attrs.color) {
-                                highlightColor = highlightMark.attrs.color;
-                            }
-                        }
-                    });
-                    
-                    return highlightColor;
-                },
-                toggleSubscript: () => editor.chain().focus().toggleSubscript().run(),
-                toggleSuperscript: () => editor.chain().focus().toggleSuperscript().run(),
+                // Formatting commands
+                toggleBold: () => editor?.chain().focus().toggleBold().run(),
+                toggleItalic: () => editor?.chain().focus().toggleItalic().run(),
+                toggleUnderline: () => editor?.chain().focus().toggleUnderline().run(),
+                toggleStrike: () => editor?.chain().focus().toggleStrike().run(),
+                toggleCode: () => editor?.chain().focus().toggleCode().run(),
+                toggleHighlight: () => editor?.chain().focus().toggleHighlight().run(),
+                setHighlightColor: (color) => editor?.chain().focus().toggleHighlight({ color }).run(),
+                toggleSubscript: () => editor?.chain().focus().toggleSubscript().run(),
+                toggleSuperscript: () => editor?.chain().focus().toggleSuperscript().run(),
                 
                 setHeading: (level) => {
+                    if (!editor) return
                     if (level === 0) editor.chain().focus().setParagraph().run();
                     else editor.chain().focus().toggleHeading({ level }).run();
                 },
-                toggleHeading1: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
-                toggleHeading2: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
-                toggleHeading3: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
-                
-                toggleBulletList: () => editor.chain().focus().toggleBulletList().run(),
-                toggleOrderedList: () => editor.chain().focus().toggleOrderedList().run(),
-                toggleTaskList: () => editor.chain().focus().toggleTaskList().run(),
-                
-                toggleTaskCard: () => editor.commands.insertTaskCard(),
-                insertTaskCard: () => editor.commands.insertTaskCard(),
-                toggleTaskCardChecked: () => editor.commands.toggleTaskCardChecked(),
-                
-                // Prompt Snippet commands
-                insertPromptSnippet: () => editor.commands.insertPromptSnippet(),
-                togglePromptSnippet: () => editor.commands.insertPromptSnippet(),
-                togglePromptSnippetExpanded: () => editor.commands.togglePromptSnippetExpanded(),
-                copyPromptSnippet: () => editor.commands.copyPromptSnippet(),
-                
-                // Set a specific task's checked state by node index (for sync from Tasks view)
-                setTaskChecked: (nodeIndex, checked) => {
-                    const { doc, tr } = editor.state;
-                    let currentIndex = 0;
-                    let found = false;
-                    
-                    doc.descendants((node, pos) => {
-                        if (found) return false;  // Stop traversal once found
-                        if (node.type.name === 'taskCard') {
-                            if (currentIndex === nodeIndex) {
-                                // Found the task - update its checked attribute
-                                tr.setNodeMarkup(pos, undefined, {
-                                    ...node.attrs,
-                                    checked: checked
-                                });
-                                found = true;
-                                return false;
-                            }
-                            currentIndex++;
-                        }
-                        return true;  // Continue traversal
-                    });
-                    
-                    if (found) {
-                        editor.view.dispatch(tr);
-                        sendToSwift({ type: 'debug', message: `Task ${nodeIndex} set to checked=${checked}` });
-                    } else {
-                        sendToSwift({ type: 'debug', message: `Task ${nodeIndex} not found` });
-                    }
+                toggleHeading: (level) => {
+                    if (!editor) return
+                    if (level === 0) editor.chain().focus().setParagraph().run();
+                    else editor.chain().focus().toggleHeading({ level }).run();
                 },
+                toggleHeading1: () => editor?.chain().focus().toggleHeading({ level: 1 }).run(),
+                toggleHeading2: () => editor?.chain().focus().toggleHeading({ level: 2 }).run(),
+                toggleHeading3: () => editor?.chain().focus().toggleHeading({ level: 3 }).run(),
                 
-                toggleBlockquote: () => editor.chain().focus().toggleBlockquote().run(),
-                toggleCodeBlock: () => editor.chain().focus().toggleCodeBlock().run(),
-                setHorizontalRule: () => editor.chain().focus().setHorizontalRule().run(),
+                toggleBulletList: () => editor?.chain().focus().toggleBulletList().run(),
+                toggleOrderedList: () => editor?.chain().focus().toggleOrderedList().run(),
+                toggleTaskList: () => editor?.chain().focus().toggleTaskList().run(),
+                toggleBlockquote: () => editor?.chain().focus().toggleBlockquote().run(),
+                toggleCodeBlock: () => editor?.chain().focus().toggleCodeBlock().run(),
+                setHorizontalRule: () => editor?.chain().focus().setHorizontalRule().run(),
                 
                 setLink: (url) => {
+                    if (!editor) return
                     if (url) editor.chain().focus().setLink({ href: url }).run();
                     else editor.chain().focus().unsetLink().run();
                 },
-                unsetLink: () => editor.chain().focus().unsetLink().run(),
                 
                 insertImage: (src, alt) => {
-                    if (src) editor.chain().focus().setImage({ src, alt: alt || '' }).run();
+                    if (src && editor) editor.chain().focus().setImage({ src, alt: alt || '' }).run();
                 },
                 
-                insertTable: () => editor.chain().focus()
-                    .insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-                deleteTable: () => editor.chain().focus().deleteTable().run(),
-                addColumnBefore: () => editor.chain().focus().addColumnBefore().run(),
-                addColumnAfter: () => editor.chain().focus().addColumnAfter().run(),
-                deleteColumn: () => editor.chain().focus().deleteColumn().run(),
-                addRowBefore: () => editor.chain().focus().addRowBefore().run(),
-                addRowAfter: () => editor.chain().focus().addRowAfter().run(),
-                deleteRow: () => editor.chain().focus().deleteRow().run(),
-                toggleHeaderCell: () => editor.chain().focus().toggleHeaderCell().run(),
-                mergeCells: () => editor.chain().focus().mergeCells().run(),
-                splitCell: () => editor.chain().focus().splitCell().run(),
+                insertTable: () => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+                deleteTable: () => editor?.chain().focus().deleteTable().run(),
+                addColumnBefore: () => editor?.chain().focus().addColumnBefore().run(),
+                addColumnAfter: () => editor?.chain().focus().addColumnAfter().run(),
+                deleteColumn: () => editor?.chain().focus().deleteColumn().run(),
+                addRowBefore: () => editor?.chain().focus().addRowBefore().run(),
+                addRowAfter: () => editor?.chain().focus().addRowAfter().run(),
+                deleteRow: () => editor?.chain().focus().deleteRow().run(),
                 
-                setTextAlign: (align) => editor.chain().focus().setTextAlign(align).run(),
-                setColor: (color) => editor.chain().focus().setColor(color).run(),
-                unsetColor: () => editor.chain().focus().unsetColor().run(),
+                setTextAlign: (align) => editor?.chain().focus().setTextAlign(align).run(),
+                setColor: (color) => editor?.chain().focus().setColor(color).run(),
                 
-                undo: () => editor.chain().focus().undo().run(),
-                redo: () => editor.chain().focus().redo().run(),
+                undo: () => editor?.chain().focus().undo().run(),
+                redo: () => editor?.chain().focus().redo().run(),
                 
-                focus: () => editor.commands.focus(),
-                blur: () => editor.commands.blur(),
+                // Task List (TipTap's built-in checkbox list)
+                toggleTaskList: () => editor?.chain().focus().toggleTaskList().run(),
+                
+                // Task Card commands
+                insertTaskCard: () => editor?.commands.insertTaskCard(),
+                toggleTaskCard: () => {
+                    if (editor?.isActive('taskCard')) {
+                        // Exit task card
+                        const { $from } = editor.state.selection
+                        const listAncestor = findAncestor($from, 'taskCardList')
+                        if (listAncestor) {
+                            const listStart = $from.before(listAncestor.depth)
+                            const listEnd = $from.after(listAncestor.depth)
+                            editor.chain()
+                                .deleteRange({ from: listStart, to: listEnd })
+                                .insertContentAt(listStart, { type: 'paragraph' })
+                                .setTextSelection(listStart + 1)
+                                .run()
+                        }
+                    } else {
+                        editor?.commands.insertTaskCard()
+                    }
+                },
+                toggleTaskCardChecked: () => editor?.commands.toggleTaskCardChecked(),
+                
+                // Prompt Snippet commands
+                insertPromptSnippet: () => editor?.commands.insertPromptSnippet(),
+                togglePromptSnippet: () => {
+                    if (editor?.isActive('promptSnippet')) {
+                        editor.commands.togglePromptSnippetExpanded()
+                    } else {
+                        editor?.commands.insertPromptSnippet()
+                    }
+                },
+                togglePromptSnippetExpanded: () => editor?.commands.togglePromptSnippetExpanded(),
+                copyPromptSnippet: () => editor?.commands.copyPromptSnippet(),
+                
+                focus: () => editor?.commands.focus(),
+                blur: () => editor?.commands.blur(),
                 getState: () => JSON.stringify(getState()),
+                
                 setThemeCSS: (css) => {
                     const el = document.getElementById('theme-styles');
                     if (el) el.textContent = css;
+                },
+                
+                // Connection management
+                disconnect: () => {
+                    if (wsProvider) wsProvider.disconnect()
+                },
+                reconnect: () => {
+                    if (wsProvider) wsProvider.connect()
+                },
+                getConnectionStatus: () => {
+                    return wsProvider?.wsconnected ? 'connected' : 'disconnected'
                 }
             };
             
-            editor.commands.focus();
             sendToSwift({ type: 'ready' });
-            sendToSwift({ type: 'debug', message: 'Editor initialized successfully!' });
-            
-            // Update action bar position on scroll (required for position: fixed)
-            const editorElement = document.getElementById('editor');
-            if (editorElement) {
-                editorElement.addEventListener('scroll', () => {
-                    const actionBar = document.getElementById('task-action-bar');
-                    if (actionBar && actionBar.classList.contains('visible')) {
-                        onSelectionChange(editor);
-                    }
-                }, { passive: true });
-            }
-            
-            // Set up floating action bar click handlers
-            const actionBar = document.getElementById('task-action-bar');
-            if (actionBar) {
-                actionBar.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    const action = e.target.closest('[data-action]')?.dataset.action;
-                    if (!action) return;
-                    
-                    const taskCardPos = parseInt(actionBar.dataset.taskCardPos, 10);
-                    if (isNaN(taskCardPos)) return;
-                    
-                    if (action === 'new-task') {
-                        editor.commands.insertTaskCard();
-                    } else if (action === 'description') {
-                        // Focus into the task card title first
-                        editor.commands.setTextSelection(taskCardPos + 2);
-                        setTimeout(() => {
-                            const { state } = editor;
-                            const { $from } = state.selection;
-                            const taskCard = $from.node($from.depth - 1);
-                            const taskCardStart = $from.before($from.depth - 1);
-                            
-                            let hasDescription = false;
-                            let descPos = null;
-                            let offset = 1;
-                            if (taskCard) {
-                                taskCard.forEach(child => {
-                                    if (child.type.name === 'taskCardTitle') {
-                                        offset += child.nodeSize;
-                                    } else if (child.type.name === 'taskCardDescription') {
-                                        hasDescription = true;
-                                        descPos = taskCardStart + offset + 1;
-                                    }
-                                });
-                            }
-                            
-                            if (hasDescription && descPos) {
-                                editor.commands.setTextSelection(descPos);
-                            } else {
-                                const insertPos = $from.after($from.depth - 1) - 1;
-                                const newDesc = state.schema.nodes.taskCardDescription.create();
-                                editor.chain()
-                                    .insertContentAt(insertPos, newDesc.toJSON())
-                                    .setTextSelection(insertPos + 1)
-                                    .run();
-                            }
-                        }, 10);
-                    } else if (action === 'delete') {
-                        const currentNode = editor.state.doc.nodeAt(taskCardPos);
-                        if (currentNode) {
-                            editor.chain().deleteRange({ from: taskCardPos, to: taskCardPos + currentNode.nodeSize }).run();
-                        }
-                    }
-                });
-            }
-            
-        } catch (err) {
-            sendToSwift({ type: 'debug', message: 'ERROR: ' + err.message });
-            sendToSwift({ type: 'debug', message: 'Stack: ' + err.stack });
+            sendToSwift({ type: 'debug', message: 'Editor initialized with Yjs collaboration!' });
         }
+        
+        // ============================================
+        // Bootstrap (wait for native app to call initDocument)
+        // ============================================
+        sendToSwift({ type: 'debug', message: 'Collaborative editor loaded, waiting for initDocument...' })
+        
+        // Expose initialization function globally
+        window.initDocument = (documentId, config = {}) => {
+            sendToSwift({ type: 'debug', message: `initDocument called with: ${documentId}` })
+            
+            if (config.partyKitHost) PARTYKIT_HOST = config.partyKitHost
+            if (config.userId) USER_ID = config.userId
+            if (config.userName) USER_NAME = config.userName
+            if (config.userColor) USER_COLOR = config.userColor
+            
+            const ydoc = initializeYjs(documentId)
+            
+            // Wait for IndexedDB to sync, then create editor
+            if (indexeddbProvider.synced) {
+                sendToSwift({ type: 'debug', message: 'IndexedDB already synced!' })
+                const content = ydoc.getXmlFragment('content')
+                sendToSwift({ type: 'debug', message: `Content ready: ${content.length} items` })
+                initializeEditor(ydoc)
+            } else {
+                sendToSwift({ type: 'debug', message: 'Waiting for IndexedDB sync...' })
+                indexeddbProvider.once('synced', () => {
+                    sendToSwift({ type: 'debug', message: 'IndexedDB now synced!' })
+                    const content = ydoc.getXmlFragment('content')
+                    sendToSwift({ type: 'debug', message: `Content ready: ${content.length} items` })
+                    initializeEditor(ydoc)
+                })
+            }
+        }
+        
+        // Send ready signal so native app knows we're loaded
+        sendToSwift({ type: 'editorLoaded' })
     </script>
 </body>
 </html>

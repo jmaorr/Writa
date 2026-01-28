@@ -48,8 +48,11 @@ class AutosaveManager {
         }
         
         currentDocument = document
+        // Update lastOpenedAt without marking as dirty (it's just tracking metadata, not content change)
         document.lastOpenedAt = Date()
-        print("📝 Started editing: \(document.displayTitle)")
+        
+        // Save the lastOpenedAt change without updating timestamp or marking dirty
+        documentManager?.save(document, updateTimestamp: false)
     }
     
     /// Stop editing current document (synchronous save)
@@ -76,6 +79,14 @@ class AutosaveManager {
         document.content = content
         document.plainText = plainText
         document.wordCount = wordCount
+        
+        // Extract and update title from content
+        let firstLine = plainText
+            .components(separatedBy: .newlines)
+            .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }?
+            .trimmingCharacters(in: .whitespaces)
+        document.title = firstLine.map { String($0.prefix(100)) } ?? "Untitled"
+        
         document.updatedAt = Date()
         document.isDirty = true
         
@@ -113,10 +124,11 @@ class AutosaveManager {
         }
     }
     
-    /// Persist document to disk
+    /// Persist document to disk (keeps isDirty for cloud sync)
     private func persistToDisk(_ document: Document) {
-        document.isDirty = false
-        documentManager?.save(document)
+        // Just save to local disk - keep isDirty = true for cloud sync
+        // Don't update timestamp (already set in contentDidChange)
+        documentManager?.save(document, updateTimestamp: false)
         print("💾 Saved: \(document.displayTitle) (\(document.content?.count ?? 0) bytes)")
     }
 }

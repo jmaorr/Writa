@@ -33,8 +33,10 @@ final class Document {
     var lastOpenedAt: Date?
     
     // Trash (Soft Delete)
-    @Attribute(.preserveValueOnDeletion) var isDeleted: Bool = false
-    var deletedAt: Date?
+    // Note: Using "isTrashed" instead of "isDeleted" because SwiftData has
+    // special handling for "isDeleted" that prevents it from being persisted correctly
+    var isTrashed: Bool = false
+    var trashedAt: Date?
     
     // Sync status (defaults required for migration)
     var serverVersion: Int = 0
@@ -66,8 +68,8 @@ final class Document {
         self.createdAt = Date()
         self.updatedAt = Date()
         self.lastOpenedAt = nil
-        self.isDeleted = false
-        self.deletedAt = nil
+        self.isTrashed = false
+        self.trashedAt = nil
         self.serverVersion = 0
         self.isDirty = false
         self.lastSyncedAt = nil
@@ -141,25 +143,25 @@ extension Document {
     
     /// Days remaining before permanent deletion (30 day trash retention)
     var daysUntilPermanentDeletion: Int? {
-        guard isDeleted, let deletedAt = deletedAt else { return nil }
-        let deletionDate = Calendar.current.date(byAdding: .day, value: 30, to: deletedAt) ?? Date()
+        guard isTrashed, let trashedAt = trashedAt else { return nil }
+        let deletionDate = Calendar.current.date(byAdding: .day, value: 30, to: trashedAt) ?? Date()
         let days = Calendar.current.dateComponents([.day], from: Date(), to: deletionDate).day ?? 0
         return max(0, days)
     }
     
     /// Whether this document should be permanently deleted (past 30 days)
     var shouldPermanentlyDelete: Bool {
-        guard isDeleted, let deletedAt = deletedAt else { return false }
+        guard isTrashed, let trashedAt = trashedAt else { return false }
         let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-        return deletedAt < thirtyDaysAgo
+        return trashedAt < thirtyDaysAgo
     }
     
     /// Formatted deletion date for display
-    var formattedDeletionDate: String? {
-        guard let deletedAt = deletedAt else { return nil }
+    var formattedTrashedDate: String? {
+        guard let trashedAt = trashedAt else { return nil }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
-        return formatter.localizedString(for: deletedAt, relativeTo: Date())
+        return formatter.localizedString(for: trashedAt, relativeTo: Date())
     }
     
     /// Whether the document needs to be synced to the server

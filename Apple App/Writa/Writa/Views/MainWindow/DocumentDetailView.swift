@@ -21,8 +21,11 @@ struct DocumentDetailView: View {
     @State private var isEditorReady = false
     @State private var currentDocumentId: UUID?
     
-    var body: some View {
-        TiptapEditorView(
+    // MARK: - Editor View Selection
+    
+    @ViewBuilder
+    private var editorView: some View {
+        TiptapCollabEditorView(
             document: document,
             webView: $webView,
             editorState: $editorState,
@@ -33,6 +36,10 @@ struct DocumentDetailView: View {
             onShowColorPicker: showColorPicker,
             isEditorReady: $isEditorReady
         )
+    }
+    
+    var body: some View {
+        editorView
         .navigationTitle(document.displayTitle)
         .navigationSubtitle(document.formattedDate)
         .toolbar {
@@ -49,7 +56,7 @@ struct DocumentDetailView: View {
             currentDocumentId = document.id
         }
         .onChange(of: document.id) { oldValue, newValue in
-            // Document changed - swap content in existing WebView
+            // Document changed - swap content in existing WebView (no skeleton needed)
             handleDocumentChange(from: oldValue, to: newValue)
         }
         .onChange(of: colorScheme) { _, _ in
@@ -89,13 +96,17 @@ struct DocumentDetailView: View {
     // MARK: - Theme Application
     
     private func applyThemeCSS() {
-        guard let webView = webView else { return }
+        guard let webView = webView, isEditorReady else { return }
         let css = themeManager.editorCSS(for: colorScheme)
         let escapedCSS = css
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "'", with: "\\'")
             .replacingOccurrences(of: "\n", with: "\\n")
-        webView.evaluateJavaScript("editorBridge.setThemeCSS('\(escapedCSS)')")
+        webView.evaluateJavaScript("editorBridge.setThemeCSS('\(escapedCSS)')") { _, error in
+            if let error = error {
+                print("⚠️ Error applying theme CSS: \(error.localizedDescription)")
+            }
+        }
     }
     
     // MARK: - Document Change Handling
@@ -103,7 +114,7 @@ struct DocumentDetailView: View {
     private func handleDocumentChange(from oldId: UUID, to newId: UUID) {
         guard oldId != newId else { return }
         
-        // Save current document immediately
+        // Update tracking for autosave manager (lastOpenedAt)
         autosaveManager.stopEditing()
         
         // Reset editor state for new document
@@ -111,39 +122,10 @@ struct DocumentDetailView: View {
         wordCount = document.wordCount
         currentDocumentId = newId
         
-        // Start editing new document
+        // Start tracking new document
         autosaveManager.startEditing(document)
         
-        // Load new content into existing WebView (if ready)
-        if isEditorReady, let webView = webView {
-            loadContent(into: webView)
-        }
-    }
-    
-    private func loadContent(into webView: WKWebView) {
-        // Load JSON content if available
-        if let contentData = document.content,
-           let jsonString = String(data: contentData, encoding: .utf8),
-           !jsonString.isEmpty && jsonString != "{}" {
-            let escapedJSON = jsonString
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "'", with: "\\'")
-                .replacingOccurrences(of: "\n", with: "\\n")
-            webView.evaluateJavaScript("editorBridge.setContentJSON('\(escapedJSON)')")
-        } else if !document.plainText.isEmpty {
-            // Fallback to plain text
-            let escapedText = document.plainText
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "'", with: "\\'")
-                .replacingOccurrences(of: "\n", with: "</p><p>")
-            webView.evaluateJavaScript("editorBridge.setContent('<p>\(escapedText)</p>')")
-        } else {
-            // Empty document
-            webView.evaluateJavaScript("editorBridge.setContent('<p></p>')")
-        }
-        
-        // Focus the editor
-        webView.evaluateJavaScript("editorBridge.focus()")
+        // Content loading is handled by TiptapCollabWebView via Yjs
     }
     
     // MARK: - Share Menu
@@ -274,6 +256,11 @@ struct DocumentDetailView: View {
             let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
             
             switch (key, isShift, isOpt) {
+            // Text Styles (simple Cmd+Number)
+            case ("1", false, false): webView.toggleHeading1(); return nil
+            case ("2", false, false): webView.toggleHeading2(); return nil
+            case ("0", false, false): webView.setHeading(level: 0); return nil
+            
             // Text formatting
             case ("b", false, false): webView.toggleBold(); return nil
             case ("i", false, false): webView.toggleItalic(); return nil
@@ -282,11 +269,6 @@ struct DocumentDetailView: View {
             case ("k", false, false): showLinkDialog(); return nil
             case ("x", true, false): webView.toggleStrike(); return nil
             case ("h", true, false): webView.evaluateJavaScript("editorBridge.toggleHighlight()"); return nil
-            
-            // Headings
-            case ("1", true, false): webView.toggleHeading1(); return nil
-            case ("2", true, false): webView.toggleHeading2(); return nil
-            case ("0", true, false): webView.setHeading(0); return nil
             
             // Lists
             case ("7", true, false): webView.toggleOrderedList(); return nil
@@ -379,6 +361,8 @@ struct ReadModeView: View {
 struct EditorSkeletonView: View {
     let document: Document
     @Environment(\.themeManager) private var themeManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isAnimating = false
     
     var body: some View {
         ScrollView {
@@ -386,29 +370,53 @@ struct EditorSkeletonView: View {
                 // Show actual content preview if available
                 if !document.plainText.isEmpty {
                     Text(document.plainText)
-                        .font(.system(size: 16, weight: .regular))
+                        .font(.system(size: themeManager.editorFontSize, weight: .regular))
                         .foregroundStyle(themeManager.tokens.colors.textPrimary)
-                        .lineSpacing(6)
+                        .lineSpacing(themeManager.editorLineHeight * themeManager.editorFontSize - themeManager.editorFontSize)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .opacity(0.6) // Slightly faded to indicate loading state
                 } else {
                     // Placeholder for empty documents
                     Text("Start writing...")
-                        .font(.system(size: 16))
+                        .font(.system(size: themeManager.editorFontSize))
                         .foregroundStyle(.tertiary)
                 }
                 
                 Spacer(minLength: 100)
             }
-            .padding(32)
-            .frame(maxWidth: 720, alignment: .leading)
+            .padding(themeManager.editorPadding)
+            .padding(.top, 52) // Extra space for formatting toolbar
+            .frame(maxWidth: themeManager.editorContentWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
+        }
+        .background(colorScheme == .dark ? themeManager.editorBackgroundColorDark : themeManager.editorBackgroundColorLight)
+        .overlay(alignment: .top) {
+            // Subtle loading shimmer overlay
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0),
+                            Color.white.opacity(0.03),
+                            Color.white.opacity(0)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: 200, height: 2)
+                .offset(x: isAnimating ? 400 : -400, y: 4)
+                .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: false), value: isAnimating)
+                .onAppear {
+                    isAnimating = true
+                }
         }
     }
 }
 
-// MARK: - TipTap Editor View
+// MARK: - Collaborative TipTap Editor View (Yjs/PartyKit)
 
-struct TiptapEditorView: View {
+struct TiptapCollabEditorView: View {
     @Bindable var document: Document
     @Binding var webView: WKWebView?
     @Binding var editorState: EditorState
@@ -420,55 +428,87 @@ struct TiptapEditorView: View {
     @Binding var isEditorReady: Bool
     
     @Environment(\.themeManager) private var themeManager
-    @Environment(\.autosaveManager) private var autosaveManager
-    
-    @State private var htmlContent: String = ""
-    @State private var jsonContent: String = ""
-    
-    // Height for the formatting toolbar area (content will scroll behind this)
-    private let toolbarAreaHeight: CGFloat = 52
     
     var body: some View {
-        // ZStack overlay approach - content scrolls behind the toolbar
         ZStack(alignment: .top) {
-            // Main editor content - extends into safe area for scroll-behind effect
+            // Main editor content
             ZStack {
                 // Skeleton shown while loading
                 if !isEditorReady {
                     EditorSkeletonView(document: document)
-                        .transition(.opacity)
+                        .transition(.opacity.combined(with: .scale(scale: 1.02)))
+                        .zIndex(1)
                 }
                 
-                // WebView always rendered (needs to load to become ready)
-                TiptapWebView(
-                    htmlContent: $htmlContent,
-                    jsonContent: $jsonContent,
-                    onContentChange: { html, json, text in
-                        wordCount = text.isEmpty ? 0 : text.split(separator: " ").count
-                        autosaveManager.contentDidChange(
-                            content: json.data(using: .utf8),
-                            plainText: text,
-                            wordCount: wordCount
-                        )
-                    },
+                // Collaborative WebView
+                TiptapCollabWebView(
+                    documentId: document.id,
+                    userId: nil,  // TODO: Get from auth
+                    userName: nil,  // TODO: Get from auth
+                    userColor: nil,
+                    themeCSS: themeCSS,
                     onReady: {
-                        print("📝 TipTap editor ready!")
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            isEditorReady = true
+                        print("📝 TipTap collaborative editor ready!")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                isEditorReady = true
+                            }
                         }
-                        loadDocumentContent()
+                    },
+                    onContentChange: { plainText, title in
+                        // Update word count for display
+                        wordCount = plainText.isEmpty ? 0 : plainText.split(separator: " ").count
+                        
+                        // Update document title if extracted from content
+                        if !title.isEmpty && document.title != title {
+                            document.title = title
+                        }
+                        
+                        // Update plain text for search/preview
+                        if document.plainText != plainText {
+                            document.plainText = plainText
+                        }
+                        // Note: No autosave needed - Yjs handles sync!
+                    },
+                    onMetaChange: { meta in
+                        // Sync metadata from Yjs to SwiftData (for local queries)
+                        // This allows the document list to show updated metadata
+                        DispatchQueue.main.async {
+                            // IMPORTANT: Never restore a locally-trashed document from Yjs
+                            // This prevents the "bouncing back from trash" bug
+                            if document.isTrashed && !meta.isDeleted {
+                                print("⚠️ Ignoring Yjs restore for locally-trashed document: \(document.displayTitle)")
+                                return
+                            }
+                            
+                            if document.isTrashed != meta.isDeleted {
+                                document.isTrashed = meta.isDeleted  // Yjs uses isDeleted, local uses isTrashed
+                                document.trashedAt = meta.deletedAt
+                            }
+                            if !meta.title.isEmpty && document.title != meta.title {
+                                document.title = meta.title
+                            }
+                            document.isFavorite = meta.isFavorite
+                            document.isPinned = meta.isPinned
+                            document.tags = meta.tags
+                            // Note: We don't set isDirty because Yjs handles sync
+                        }
+                    },
+                    onConnectionChange: { _ in
+                        // Connection status is transparent - no UI needed
                     },
                     onSelectionChange: { state in
                         editorState = state
                     },
-                    themeCSS: themeCSS,
                     webViewRef: $webView
                 )
                 .opacity(isEditorReady ? 1 : 0)
+                .animation(.easeInOut(duration: 0.2), value: isEditorReady)
+                .zIndex(0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            
-            // Formatting toolbar - respects safe area, sits below window toolbar
+
+            // Formatting toolbar
             VStack(spacing: 0) {
                 LiquidGlassEditorToolbar(
                     webView: $webView,
@@ -480,53 +520,7 @@ struct TiptapEditorView: View {
                 )
                 Spacer()
             }
-        }
-        .onAppear {
-            autosaveManager.startEditing(document)
-        }
-        .onDisappear {
-            autosaveManager.stopEditing()
-        }
-    }
-    
-    // MARK: - Content Loading
-    
-    private func loadDocumentContent() {
-        guard let webView = webView else {
-            print("⚠️ WebView not available for content loading")
-            return
-        }
-        
-        // Try to load JSON content first (preferred format)
-        if let contentData = document.content,
-           let jsonString = String(data: contentData, encoding: .utf8),
-           !jsonString.isEmpty && jsonString != "{}" {
-            print("📄 Loading JSON content for document: \(document.displayTitle)")
-            let escapedJSON = jsonString
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "'", with: "\\'")
-                .replacingOccurrences(of: "\n", with: "\\n")
-            webView.evaluateJavaScript("editorBridge.setContentJSON('\(escapedJSON)')") { _, error in
-                if let error = error {
-                    print("❌ Error setting JSON content: \(error)")
-                } else {
-                    print("✅ JSON content loaded successfully")
-                }
-            }
-        } else if !document.plainText.isEmpty {
-            // Fallback to plain text if no JSON content
-            print("📄 Loading plain text content for document: \(document.displayTitle)")
-            let escapedText = document.plainText
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "'", with: "\\'")
-                .replacingOccurrences(of: "\n", with: "</p><p>")
-            webView.evaluateJavaScript("editorBridge.setContent('<p>\(escapedText)</p>')") { _, error in
-                if let error = error {
-                    print("❌ Error setting plain text content: \(error)")
-                }
-            }
-        } else {
-            print("📄 No existing content for document: \(document.displayTitle)")
+            
         }
     }
 }
@@ -730,7 +724,7 @@ struct LiquidGlassEditorToolbar: View {
         
         return HStack(spacing: 4) {
             ForEach(Array(colors.enumerated()), id: \.offset) { index, colorInfo in
-                let isSelected = editorState.highlightColor.lowercased() == colorInfo.color.toHex()?.lowercased()
+                let isSelected = editorState.highlightColor?.lowercased() == colorInfo.color.toHex()?.lowercased()
                 let isVisible = visibleColorCount > index
                 
                 Button {
@@ -806,7 +800,7 @@ struct LiquidGlassEditorToolbar: View {
         case .heading:
             webView.toggleHeading2()
         case .body:
-            webView.setHeading(0)
+            webView.setHeading(level: 0)
         case .bold:
             webView.toggleBold()
         case .italic:
@@ -932,7 +926,8 @@ struct NativeEditorView: View {
         }
         .onChange(of: document.plainText) { _, _ in
             updateWordCount()
-            document.updatedAt = Date()
+            // Note: updatedAt is managed by AutosaveManager on actual content changes
+            // Don't update here to avoid timestamp changes on load/sync
         }
     }
     

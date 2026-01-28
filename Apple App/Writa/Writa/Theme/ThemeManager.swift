@@ -265,7 +265,7 @@ final class ThemeManager {
     /// Generates complete CSS for the embedded Tiptap editor
     func editorCSS(for colorScheme: ColorScheme) -> String {
         let isDark = colorScheme == .dark
-        let colorVars = tokens.colors.toCSSVariables()
+        let colorVars = tokens.colors.toCSSVariables(for: colorScheme)
         let typographyVars = tokens.typography.toCSSVariables()
         
         // Computed values for editor

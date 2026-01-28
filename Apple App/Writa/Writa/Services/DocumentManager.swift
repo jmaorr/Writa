@@ -51,21 +51,26 @@ class DocumentManager {
     // MARK: - Save
     
     /// Save a document (explicit save)
-    func save(_ document: Document) {
+    func save(_ document: Document, updateTimestamp: Bool = true) {
         guard let context = modelContext else { 
             print("❌ DocumentManager.save: No model context configured!")
             return 
         }
         
-        document.updatedAt = Date()
-        document.isDirty = true  // Mark as needing sync (will be set to false after successful sync)
+        // Only update timestamp and mark dirty if this is a real content change
+        if updateTimestamp {
+            document.updatedAt = Date()
+            document.isDirty = true  // Mark as needing sync (will be set to false after successful sync)
+        }
         
         do {
             try context.save()
             print("✅ Saved document: \(document.displayTitle) (isDirty: \(document.isDirty))")
             
-            // Trigger auto-sync
-            NotificationCenter.default.post(name: Notification.Name("DocumentDidSave"), object: nil)
+            // Trigger auto-sync only if this was a real change
+            if updateTimestamp {
+                NotificationCenter.default.post(name: Notification.Name("DocumentDidSave"), object: nil)
+            }
         } catch {
             print("❌ Failed to save document: \(error)")
         }
@@ -86,24 +91,25 @@ class DocumentManager {
     
     /// Move a document to trash (soft delete)
     func moveToTrash(_ document: Document) {
-        print("🗑️ Moving to trash: \(document.displayTitle)")
-        print("   Document ID: \(document.id)")
-        print("   isDeleted before: \(document.isDeleted)")
+        guard let context = modelContext else { return }
         
-        document.isDeleted = true
-        document.deletedAt = Date()
+        document.isTrashed = true
+        document.trashedAt = Date()
+        document.updatedAt = Date()
         document.isDirty = true
         
-        print("   isDeleted after: \(document.isDeleted)")
-        
-        save(document)
-        print("🗑️ Saved to trash: \(document.displayTitle)")
+        do {
+            try context.save()
+            NotificationCenter.default.post(name: Notification.Name("DocumentDidSave"), object: nil)
+        } catch {
+            print("❌ Failed to move to trash: \(error)")
+        }
     }
     
     /// Restore a document from trash
     func restore(_ document: Document) {
-        document.isDeleted = false
-        document.deletedAt = nil
+        document.isTrashed = false
+        document.trashedAt = nil
         document.isDirty = true
         
         save(document)
@@ -132,7 +138,7 @@ class DocumentManager {
         guard let context = modelContext else { return }
         
         let descriptor = FetchDescriptor<Document>(
-            predicate: #Predicate { $0.isDeleted == true }
+            predicate: #Predicate { $0.isTrashed == true }
         )
         
         do {
@@ -158,7 +164,7 @@ class DocumentManager {
         
         let descriptor = FetchDescriptor<Document>(
             predicate: #Predicate { document in
-                document.isDeleted == true && document.deletedAt != nil
+                document.isTrashed == true && document.trashedAt != nil
             }
         )
         
@@ -167,7 +173,7 @@ class DocumentManager {
             var deletedCount = 0
             
             for document in trashedDocuments {
-                if let deletedAt = document.deletedAt, deletedAt < thirtyDaysAgo {
+                if let trashedAt = document.trashedAt, trashedAt < thirtyDaysAgo {
                     context.delete(document)
                     deletedCount += 1
                 }
@@ -189,7 +195,7 @@ class DocumentManager {
         guard let context = modelContext else { return 0 }
         
         let descriptor = FetchDescriptor<Document>(
-            predicate: #Predicate { $0.isDeleted == true }
+            predicate: #Predicate { $0.isTrashed == true }
         )
         
         do {
@@ -199,19 +205,15 @@ class DocumentManager {
         }
     }
     
-    /// Get all documents that need syncing
+    /// Get all documents that need syncing (includes trashed documents so deletions sync to server)
     func documentsNeedingSync() -> [Document] {
         guard let context = modelContext else { return [] }
         
         let descriptor = FetchDescriptor<Document>(
-            predicate: #Predicate { $0.isDirty == true && $0.isDeleted == false }
+            predicate: #Predicate { $0.isDirty == true }
         )
         
-        do {
-            return try context.fetch(descriptor)
-        } catch {
-            return []
-        }
+        return (try? context.fetch(descriptor)) ?? []
     }
     
     // MARK: - Workspace Operations
@@ -354,7 +356,7 @@ class DocumentManager {
         
         // Mark all documents that have never synced
         let docDescriptor = FetchDescriptor<Document>(
-            predicate: #Predicate { $0.lastSyncedAt == nil && $0.isDeleted == false }
+            predicate: #Predicate { $0.lastSyncedAt == nil && $0.isTrashed == false }
         )
         if let docs = try? context.fetch(docDescriptor) {
             for doc in docs {
@@ -428,6 +430,15 @@ class DocumentManager {
     
     /// Update local document from server data
     func updateDocumentFromServer(_ document: Document, with serverData: DocumentDTO) {
+        // IMPORTANT: Never restore a locally-trashed document from server
+        // This prevents the "bouncing back from trash" bug
+        if document.isTrashed && !serverData.isDeleted {
+            print("⚠️ Skipping restore of locally-trashed document: \(serverData.title)")
+            print("   Local isTrashed=true, server isDeleted=false")
+            print("   Keeping local trash state")
+            return
+        }
+        
         document.title = serverData.title
         document.summary = serverData.summary ?? ""
         document.plainText = serverData.plainText ?? ""
@@ -435,8 +446,8 @@ class DocumentManager {
         document.tags = serverData.tags ?? []
         document.isFavorite = serverData.isFavorite
         document.isPinned = serverData.isPinned
-        document.isDeleted = serverData.isDeleted
-        document.deletedAt = serverData.deletedAt
+        document.isTrashed = serverData.isDeleted  // API uses isDeleted, local uses isTrashed
+        document.trashedAt = serverData.deletedAt
         document.serverVersion = serverData.version
         document.updatedAt = serverData.updatedAt
         document.lastSyncedAt = Date()
@@ -471,8 +482,8 @@ class DocumentManager {
         document.tags = serverData.tags ?? []
         document.isFavorite = serverData.isFavorite
         document.isPinned = serverData.isPinned
-        document.isDeleted = serverData.isDeleted
-        document.deletedAt = serverData.deletedAt
+        document.isTrashed = serverData.isDeleted  // API uses isDeleted, local uses isTrashed
+        document.trashedAt = serverData.deletedAt
         document.serverVersion = serverData.version
         document.createdAt = serverData.createdAt
         document.updatedAt = serverData.updatedAt

@@ -165,9 +165,9 @@ enum EditorTool: String, CaseIterable, Identifiable, Codable, Hashable {
     
     var shortcut: String? {
         switch self {
-        case .title: return "⌘⇧1"
-        case .heading: return "⌘⇧2"
-        case .body: return "⌘⇧0"
+        case .title: return "⌘1"
+        case .heading: return "⌘2"
+        case .body: return "⌘0"
         case .bold: return "⌘B"
         case .italic: return "⌘I"
         case .underline: return "⌘U"

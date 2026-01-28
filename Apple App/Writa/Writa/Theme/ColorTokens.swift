@@ -112,7 +112,43 @@ extension ColorTokens {
 
 extension ColorTokens {
     /// Generates CSS custom properties for the embedded Tiptap editor
+    /// - Parameter colorScheme: The color scheme to use for resolving dynamic colors.
+    ///   This ensures consistent color resolution regardless of the current window appearance.
+    func toCSSVariables(for colorScheme: ColorScheme) -> String {
+        let isDark = colorScheme == .dark
+        
+        // Use explicit colors based on color scheme to avoid race conditions
+        // with dynamic NSColor resolution during view transitions
+        let textPrimaryCSS = isDark ? "rgb(240, 240, 240)" : "rgb(29, 29, 31)"
+        let textSecondaryCSS = isDark ? "rgba(255, 255, 255, 0.55)" : "rgba(60, 60, 67, 0.6)"
+        let textTertiaryCSS = isDark ? "rgba(255, 255, 255, 0.25)" : "rgba(60, 60, 67, 0.3)"
+        let editorTextCSS = isDark ? "rgb(240, 240, 240)" : "rgb(0, 0, 0)"
+        let bgPrimaryCSS = isDark ? "rgb(30, 30, 30)" : "rgb(255, 255, 255)"
+        let bgSecondaryCSS = isDark ? "rgb(44, 44, 46)" : "rgb(242, 242, 247)"
+        let borderCSS = isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.1)"
+        let editorBgCSS = isDark ? "rgb(30, 30, 30)" : "rgb(255, 255, 255)"
+        let editorSelectionCSS = isDark ? "rgba(10, 132, 255, 0.3)" : "rgba(0, 122, 255, 0.3)"
+        
+        return """
+        :root {
+            --writa-bg-primary: \(bgPrimaryCSS);
+            --writa-bg-secondary: \(bgSecondaryCSS);
+            --writa-text-primary: \(textPrimaryCSS);
+            --writa-text-secondary: \(textSecondaryCSS);
+            --writa-text-tertiary: \(textTertiaryCSS);
+            --writa-accent: \(accentPrimary.cssValue);
+            --writa-border: \(borderCSS);
+            --writa-editor-bg: \(editorBgCSS);
+            --writa-editor-text: \(editorTextCSS);
+            --writa-editor-selection: \(editorSelectionCSS);
+        }
+        """
+    }
+    
+    /// Legacy method - prefer toCSSVariables(for:) to avoid color resolution issues
+    @available(*, deprecated, message: "Use toCSSVariables(for:) with explicit colorScheme to avoid race conditions")
     func toCSSVariables() -> String {
+        // Fallback that attempts dynamic resolution (may be unreliable)
         """
         :root {
             --writa-bg-primary: \(backgroundPrimary.cssValue);

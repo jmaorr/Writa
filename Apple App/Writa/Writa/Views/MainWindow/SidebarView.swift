@@ -32,10 +32,10 @@ struct SidebarView: View {
     @Query(filter: #Predicate<Workspace> { $0.parent == nil }, sort: \Workspace.sortOrder)
     private var rootWorkspaces: [Workspace]
     
-    @Query(filter: #Predicate<Document> { $0.isDeleted == true })
+    @Query(filter: #Predicate<Document> { $0.isTrashed == true })
     private var trashedDocuments: [Document]
     
-    @Query(filter: #Predicate<Document> { $0.isDeleted == false })
+    @Query(filter: #Predicate<Document> { $0.isTrashed == false })
     private var activeDocuments: [Document]
     
     @Binding var selection: SidebarItemType?
@@ -61,7 +61,7 @@ struct SidebarView: View {
     }
     
     private var trashItem: SidebarItem {
-        .trash(count: trashedDocuments.count)
+        .trash(count: 0)  // Don't show count badge for trash
     }
     
     var body: some View {
@@ -101,11 +101,12 @@ struct SidebarView: View {
                     .buttonStyle(.plain)
                 } else {
                     ForEach(rootWorkspaces) { workspace in
-                        WorkspaceRow(
-                            workspace: workspace,
-                            selection: $selection,
-                            newlyCreatedWorkspaceID: $newlyCreatedWorkspaceID
-                        )
+                WorkspaceRow(
+                    workspace: workspace,
+                    selection: $selection,
+                    newlyCreatedWorkspaceID: $newlyCreatedWorkspaceID,
+                    allDocuments: activeDocuments
+                )
                     }
                     .onMove { source, destination in
                         moveRootWorkspaces(from: source, to: destination)
@@ -161,6 +162,7 @@ struct SidebarView: View {
         for (index, workspace) in workspaces.enumerated() {
             workspace.sortOrder = index
             workspace.updatedAt = Date()
+            workspace.isDirty = true  // Mark for sync
         }
         
         // Save changes
@@ -178,9 +180,9 @@ struct WorkspaceRow: View {
     @Bindable var workspace: Workspace
     @Binding var selection: SidebarItemType?
     @Binding var newlyCreatedWorkspaceID: UUID?
+    let allDocuments: [Document]  // Passed from parent for fresh data
     
     @Environment(\.modelContext) private var modelContext
-    @Query private var allDocuments: [Document]
     @Query private var allWorkspaces: [Workspace]
     
     @State private var isRenaming = false
@@ -191,6 +193,13 @@ struct WorkspaceRow: View {
     
     private var isNewlyCreated: Bool {
         workspace.id == newlyCreatedWorkspaceID
+    }
+    
+    // Compute document count from fresh @Query data instead of workspace.documents relationship
+    // This ensures immediate updates when documents are trashed/restored
+    // Only counts documents directly in this workspace, not sub-workspaces
+    private var documentCount: Int {
+        allDocuments.filter { $0.workspace?.id == workspace.id }.count
     }
     
     var body: some View {
@@ -212,7 +221,8 @@ struct WorkspaceRow: View {
                     WorkspaceRow(
                         workspace: child,
                         selection: $selection,
-                        newlyCreatedWorkspaceID: $newlyCreatedWorkspaceID
+                        newlyCreatedWorkspaceID: $newlyCreatedWorkspaceID,
+                        allDocuments: allDocuments
                     )
                 }
                 .onMove { source, destination in
@@ -253,8 +263,8 @@ struct WorkspaceRow: View {
                 
                 if isHovering {
                     workspaceMenu
-                } else if workspace.totalDocumentCount > 0 {
-                    Text("\(workspace.totalDocumentCount)")
+                } else if documentCount > 0 {
+                    Text("\(documentCount)")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -352,9 +362,11 @@ struct WorkspaceRow: View {
         let temp = workspace.sortOrder
         workspace.sortOrder = other.sortOrder
         other.sortOrder = temp
-        // Update timestamps so sync detects the change
+        // Mark for sync
         workspace.updatedAt = Date()
+        workspace.isDirty = true
         other.updatedAt = Date()
+        other.isDirty = true
         
         // Trigger auto-sync
         NotificationCenter.default.post(name: Notification.Name("WorkspaceDidChange"), object: nil)
@@ -366,9 +378,11 @@ struct WorkspaceRow: View {
         let temp = workspace.sortOrder
         workspace.sortOrder = other.sortOrder
         other.sortOrder = temp
-        // Update timestamps so sync detects the change
+        // Mark for sync
         workspace.updatedAt = Date()
+        workspace.isDirty = true
         other.updatedAt = Date()
+        other.isDirty = true
         
         // Trigger auto-sync
         NotificationCenter.default.post(name: Notification.Name("WorkspaceDidChange"), object: nil)
@@ -432,6 +446,7 @@ struct WorkspaceRow: View {
         let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         workspace.name = trimmed.isEmpty ? "Untitled" : trimmed
         workspace.updatedAt = Date()
+        workspace.isDirty = true  // Mark for sync
         isRenaming = false
         
         if workspace.id == newlyCreatedWorkspaceID {
@@ -463,6 +478,7 @@ struct WorkspaceRow: View {
         let rootCount = allWorkspaces.filter { $0.parent == nil }.count
         workspace.sortOrder = rootCount
         workspace.updatedAt = Date()
+        workspace.isDirty = true  // Mark for sync
     }
     
     private func moveChildWorkspaces(from source: IndexSet, to destination: Int) {
@@ -474,6 +490,7 @@ struct WorkspaceRow: View {
         for (index, child) in children.enumerated() {
             child.sortOrder = index
             child.updatedAt = Date()
+            child.isDirty = true  // Mark for sync
         }
         
         // Trigger auto-sync

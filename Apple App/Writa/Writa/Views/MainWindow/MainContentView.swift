@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import WebKit
 
 struct MainContentView: View {
     @Environment(\.modelContext) private var modelContext
@@ -14,14 +15,24 @@ struct MainContentView: View {
     @Environment(\.documentManager) private var documentManager
     
     @State private var sidebarSelection: SidebarItemType? = .allDocuments
-    @State private var documentSelection: Document?
+    @State private var selectedDocumentIDs: Set<Document.ID> = []
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var shouldCreateWorkspace = false
     
+    @Query(filter: #Predicate<Document> { $0.isTrashed == false })
+    private var allDocuments: [Document]
     @Query private var workspaces: [Workspace]
     
+    /// Returns the single selected document if exactly one is selected
+    private var singleSelectedDocument: Document? {
+        guard selectedDocumentIDs.count == 1,
+              let id = selectedDocumentIDs.first else { return nil }
+        return allDocuments.first { $0.id == id }
+    }
+    
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        ZStack {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
             // MARK: - Sidebar (Column 1)
             SidebarView(
                 selection: $sidebarSelection,
@@ -33,22 +44,28 @@ struct MainContentView: View {
             Group {
                 switch sidebarSelection {
                 case .trash:
-                    TrashListView(documentSelection: $documentSelection)
+                    TrashListView(selectedDocumentIDs: $selectedDocumentIDs)
                 case .tasks:
-                    TasksView(documentSelection: $documentSelection)
+                    TasksView(selectedDocumentIDs: $selectedDocumentIDs)
                 default:
                     DocumentListView(
                         sidebarSelection: sidebarSelection,
-                        documentSelection: $documentSelection
+                        selectedDocumentIDs: $selectedDocumentIDs
                     )
                 }
             }
             .navigationSplitViewColumnWidth(min: 250, ideal: 300, max: 400)
         } detail: {
             // MARK: - Document Detail (Column 3)
-            if let document = documentSelection {
-                if document.isDeleted {
-                    // Show trash detail view for deleted documents
+            if selectedDocumentIDs.count > 1 {
+                // Multi-selection view
+                MultiSelectDetailView(
+                    selectedIDs: selectedDocumentIDs,
+                    documents: allDocuments,
+                    onClearSelection: { selectedDocumentIDs.removeAll() }
+                )
+            } else if let document = singleSelectedDocument {
+                if document.isTrashed {
                     TrashDetailView(document: document)
                 } else {
                     DocumentDetailView(document: document)
@@ -56,19 +73,21 @@ struct MainContentView: View {
             } else {
                 EmptyDetailView()
             }
-        }
-        .navigationSplitViewStyle(.balanced)
-        .onChange(of: sidebarSelection) { oldValue, newValue in
-            // Clear document selection when switching sections
-            if oldValue != newValue {
-                documentSelection = nil
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .createNewDocument)) { _ in
-            createNewDocument()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .createNewWorkspace)) { _ in
-            shouldCreateWorkspace = true
+            .navigationSplitViewStyle(.balanced)
+            .onChange(of: sidebarSelection) { oldValue, newValue in
+                // Clear document selection when switching sections
+                if oldValue != newValue {
+                    selectedDocumentIDs.removeAll()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .createNewDocument)) { _ in
+                createNewDocument()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .createNewWorkspace)) { _ in
+                shouldCreateWorkspace = true
+            }
+            
         }
     }
     
@@ -80,7 +99,7 @@ struct MainContentView: View {
         }
         
         if let newDocument = documentManager.create(title: "Untitled", in: workspace) {
-            documentSelection = newDocument
+            selectedDocumentIDs = [newDocument.id]
         }
     }
 }

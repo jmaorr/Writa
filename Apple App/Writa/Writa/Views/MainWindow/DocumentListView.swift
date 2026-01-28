@@ -13,10 +13,10 @@ struct DocumentListView: View {
     @Environment(\.themeManager) private var themeManager
     @Environment(\.documentManager) private var documentManager
     let sidebarSelection: SidebarItemType?
-    @Binding var documentSelection: Document?
+    @Binding var selectedDocumentIDs: Set<Document.ID>
     
     // Query only non-deleted documents
-    @Query(filter: #Predicate<Document> { $0.isDeleted == false }) 
+    @Query(filter: #Predicate<Document> { $0.isTrashed == false }) 
     private var allDocuments: [Document]
     @Query private var workspaces: [Workspace]
     
@@ -47,10 +47,9 @@ struct DocumentListView: View {
             docs = docs.filter { $0.lastOpenedAt != nil }
                 .sorted { ($0.lastOpenedAt ?? .distantPast) > ($1.lastOpenedAt ?? .distantPast) }
         case .workspace(let id):
-            if let workspace = workspaces.first(where: { $0.id == id }) {
-                // Workspace documents also need to be filtered for non-deleted
-                docs = workspace.documents.filter { !$0.isDeleted }
-            }
+            // Filter from allDocuments (which has fresh @Query data) instead of workspace.documents relationship
+            // This ensures immediate refresh when isTrashed changes
+            docs = docs.filter { $0.workspace?.id == id }
         case .tag(let name):
             docs = docs.filter { $0.tags.contains(name) }
         case .smartFilter(let type):
@@ -130,20 +129,24 @@ struct DocumentListView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(documents) { document in
+                    let isSelected = selectedDocumentIDs.contains(document.id)
+                    
                     DocumentRowView(document: document)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 4)
                         .background(
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(documentSelection?.id == document.id
+                                .fill(isSelected
                                       ? Color.accentColor.opacity(0.12)
                                       : Color.clear)
                         )
                         .padding(.horizontal, 8)
                         .contentShape(Rectangle())
-                        .onTapGesture {
-                            documentSelection = document
-                        }
+                        .simultaneousGesture(
+                            TapGesture().onEnded {
+                                handleDocumentTap(document)
+                            }
+                        )
                         .draggable(SidebarDragItem.document(document.id))
                         .contextMenu {
                             documentContextMenu(for: document)
@@ -153,6 +156,40 @@ struct DocumentListView: View {
             .padding(.vertical, 4)
         }
         .background(Color(nsColor: .controlBackgroundColor))
+    }
+    
+    private func handleDocumentTap(_ document: Document) {
+        let modifiers = NSEvent.modifierFlags
+        
+        if modifiers.contains(.command) {
+            // Cmd-click: toggle selection
+            if selectedDocumentIDs.contains(document.id) {
+                selectedDocumentIDs.remove(document.id)
+            } else {
+                selectedDocumentIDs.insert(document.id)
+            }
+        } else if modifiers.contains(.shift) && !selectedDocumentIDs.isEmpty {
+            // Shift-click: select range from last selected to this document
+            handleShiftClick(document: document)
+        } else {
+            // Regular click: select only this document
+            selectedDocumentIDs = [document.id]
+        }
+    }
+    
+    private func handleShiftClick(document: Document) {
+        // Find the anchor (first selected item in current order)
+        guard let anchorID = documents.first(where: { selectedDocumentIDs.contains($0.id) })?.id,
+              let anchorIndex = documents.firstIndex(where: { $0.id == anchorID }),
+              let currentIndex = documents.firstIndex(where: { $0.id == document.id }) else {
+            selectedDocumentIDs = [document.id]
+            return
+        }
+        
+        let range = min(anchorIndex, currentIndex)...max(anchorIndex, currentIndex)
+        for i in range {
+            selectedDocumentIDs.insert(documents[i].id)
+        }
     }
     
     
@@ -200,32 +237,46 @@ struct DocumentListView: View {
     
     @ViewBuilder
     private func documentContextMenu(for document: Document) -> some View {
-        Button {
-            document.isFavorite.toggle()
-            documentManager.save(document)
-        } label: {
-            Label(
-                document.isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                systemImage: document.isFavorite ? "star.slash" : "star"
-            )
-        }
+        // Check if this document is part of a multi-selection
+        let isMultiSelect = selectedDocumentIDs.count > 1 && selectedDocumentIDs.contains(document.id)
         
-        Button {
-            document.isPinned.toggle()
-            documentManager.save(document)
-        } label: {
-            Label(
-                document.isPinned ? "Unpin" : "Pin",
-                systemImage: document.isPinned ? "pin.slash" : "pin"
-            )
+        if !isMultiSelect {
+            // Single document actions
+            Button {
+                document.isFavorite.toggle()
+                documentManager.save(document)
+            } label: {
+                Label(
+                    document.isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                    systemImage: document.isFavorite ? "star.slash" : "star"
+                )
+            }
+            
+            Button {
+                document.isPinned.toggle()
+                documentManager.save(document)
+            } label: {
+                Label(
+                    document.isPinned ? "Unpin" : "Pin",
+                    systemImage: document.isPinned ? "pin.slash" : "pin"
+                )
+            }
+            
+            Divider()
         }
-        
-        Divider()
         
         Button(role: .destructive) {
-            deleteDocument(document)
+            if isMultiSelect {
+                deleteSelectedDocuments()
+            } else {
+                deleteDocument(document)
+            }
         } label: {
-            Label("Move to Trash", systemImage: "trash")
+            if isMultiSelect {
+                Label("Move \(selectedDocumentIDs.count) to Trash", systemImage: "trash")
+            } else {
+                Label("Move to Trash", systemImage: "trash")
+            }
         }
     }
     
@@ -240,18 +291,29 @@ struct DocumentListView: View {
         
         // Create using document manager
         if let newDocument = documentManager.create(title: "Untitled", in: workspace) {
-            documentSelection = newDocument
+            selectedDocumentIDs = [newDocument.id]
         }
     }
     
     private func deleteDocument(_ document: Document) {
         // Clear selection if deleting the selected document
-        if documentSelection?.id == document.id {
-            documentSelection = nil
-        }
+        selectedDocumentIDs.remove(document.id)
         
         // Move to trash (soft delete)
         documentManager.moveToTrash(document)
+    }
+    
+    private func deleteSelectedDocuments() {
+        // Get all selected documents
+        let docsToDelete = allDocuments.filter { selectedDocumentIDs.contains($0.id) }
+        
+        // Clear selection first
+        selectedDocumentIDs.removeAll()
+        
+        // Move all to trash
+        for document in docsToDelete {
+            documentManager.moveToTrash(document)
+        }
     }
 }
 
@@ -325,7 +387,7 @@ struct EmptyDocumentListView: View {
     } content: {
         DocumentListView(
             sidebarSelection: .allDocuments,
-            documentSelection: .constant(nil)
+            selectedDocumentIDs: .constant([])
         )
         .modelContainer(for: Document.self, inMemory: true)
     } detail: {

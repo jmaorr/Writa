@@ -14,11 +14,11 @@ struct TrashListView: View {
     @Environment(\.themeManager) private var themeManager
     @Environment(\.documentManager) private var documentManager
     
-    @Query(filter: #Predicate<Document> { $0.isDeleted == true },
-           sort: \Document.deletedAt, order: .reverse) 
+    @Query(filter: #Predicate<Document> { $0.isTrashed == true },
+           sort: \Document.trashedAt, order: .reverse) 
     private var trashedDocuments: [Document]
     
-    @Binding var documentSelection: Document?
+    @Binding var selectedDocumentIDs: Set<Document.ID>
     @State private var showEmptyTrashConfirmation = false
     
     var body: some View {
@@ -66,18 +66,44 @@ struct TrashListView: View {
     // MARK: - Trash List
     
     private var trashList: some View {
-        List(trashedDocuments, selection: $documentSelection) { document in
-            TrashRowView(document: document)
-                .tag(document)
-                .listRowBackground(rowBackground(for: document))
-                .contextMenu {
-                    trashContextMenu(for: document)
+        List(trashedDocuments, selection: $selectedDocumentIDs) { document in
+            VStack(alignment: .leading, spacing: 4) {
+                // Use same DocumentRowView as document list
+                DocumentRowView(document: document)
+                
+                // Add trash-specific info below
+                HStack(spacing: 8) {
+                    if let deletedDate = document.formattedTrashedDate {
+                        Text("Deleted \(deletedDate)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    if let daysRemaining = document.daysUntilPermanentDeletion {
+                        Text("•")
+                            .foregroundStyle(.secondary)
+                            .font(.caption2)
+                        Text(daysRemaining == 0 ? "Expires today" : "\(daysRemaining) day\(daysRemaining == 1 ? "" : "s") left")
+                            .font(.caption2)
+                            .foregroundStyle(daysRemaining <= 7 ? .orange : .secondary)
+                    }
                 }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .tag(document)
+            .listRowBackground(rowBackground(for: document))
+            .listRowSeparator(.hidden)
+            .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
+            .contextMenu {
+                trashContextMenu(for: document)
+            }
         }
+        .listStyle(.plain)
     }
     
     private func rowBackground(for document: Document) -> Color {
-        if documentSelection?.id == document.id {
+        if selectedDocumentIDs.contains(document.id) {
             return themeManager.tokens.colors.surfaceSelected.opacity(0.3)
         }
         return Color.clear
@@ -106,66 +132,19 @@ struct TrashListView: View {
     
     private func restoreDocument(_ document: Document) {
         // Clear selection if restoring the selected document
-        if documentSelection?.id == document.id {
-            documentSelection = nil
-        }
-        
+        selectedDocumentIDs.remove(document.id)
         documentManager.restore(document)
     }
     
     private func permanentlyDeleteDocument(_ document: Document) {
         // Clear selection if deleting the selected document
-        if documentSelection?.id == document.id {
-            documentSelection = nil
-        }
-        
+        selectedDocumentIDs.remove(document.id)
         documentManager.permanentlyDelete(document)
     }
     
     private func emptyTrash() {
-        documentSelection = nil
+        selectedDocumentIDs.removeAll()
         documentManager.emptyTrash()
-    }
-}
-
-// MARK: - Trash Row View
-
-struct TrashRowView: View {
-    let document: Document
-    @Environment(\.themeManager) private var themeManager
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // Title
-            Text(document.displayTitle)
-                .font(themeManager.tokens.typography.headline.font)
-                .foregroundStyle(themeManager.tokens.colors.textPrimary)
-                .lineLimit(1)
-            
-            // Preview
-            Text(document.previewText)
-                .font(.system(size: 12))
-                .foregroundStyle(themeManager.tokens.colors.textSecondary)
-                .lineLimit(2)
-            
-            // Deletion info
-            HStack(spacing: 8) {
-                if let deletedDate = document.formattedDeletionDate {
-                    Text("Deleted \(deletedDate)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                
-                if let daysRemaining = document.daysUntilPermanentDeletion {
-                    Text("•")
-                        .foregroundStyle(.secondary)
-                    Text(daysRemaining == 0 ? "Expires today" : "\(daysRemaining) day\(daysRemaining == 1 ? "" : "s") left")
-                        .font(.caption2)
-                        .foregroundStyle(daysRemaining <= 7 ? .orange : .secondary)
-                }
-            }
-        }
-        .padding(.vertical, 4)
     }
 }
 
@@ -190,7 +169,7 @@ struct TrashDetailView: View {
             
             // Info
             VStack(spacing: 8) {
-                if let deletedDate = document.formattedDeletionDate {
+                if let deletedDate = document.formattedTrashedDate {
                     Text("Deleted \(deletedDate)")
                         .foregroundStyle(.secondary)
                 }
@@ -233,7 +212,7 @@ struct TrashDetailView: View {
     NavigationSplitView {
         Text("Sidebar")
     } content: {
-        TrashListView(documentSelection: .constant(nil))
+        TrashListView(selectedDocumentIDs: .constant([]))
             .modelContainer(for: Document.self, inMemory: true)
     } detail: {
         Text("Detail")

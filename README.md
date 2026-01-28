@@ -1,167 +1,135 @@
-# Writa
+# Writa Project
 
-A native, cross-platform writing application with a powerful content library and embedded rich text editor.
+AI-powered writing assistant for macOS.
 
-## Overview
+## 🚀 Quick Start
 
-Writa is designed for Product, Design, and Engineering teams to create, organize, and share structured content. It combines the feel of a native notes app with the power of a rich text editor (Tiptap/ProseMirror) and a community content library.
+**New here?** → Read **[START_HERE.md](START_HERE.md)**
 
-## Platforms
-
-- **macOS** - Swift + SwiftUI (in development)
-- **iOS** - Swift + SwiftUI (planned)
-- **Android** - Kotlin + Jetpack Compose (planned)
-- **Windows** - WinUI (planned)
-
-## Architecture
-
-### Native-First UX
-All navigation, toolbars, menus, and UI chrome are implemented natively per platform. The rich text editor (Tiptap) runs inside a WebView, treated as an isolated editing surface.
-
-### Content Model
-- **Canonical Format**: ProseMirror JSON
-- **Local Storage**: SQLite (SwiftData on Apple platforms)
-- **Sync**: Offline-first with cloud sync
-
-### Backend Stack
-- **Auth**: Clerk
-- **API**: Cloudflare Workers
-- **Database**: Cloudflare D1 (SQLite)
-- **Storage**: Cloudflare R2
-- **Collaboration**: PartyKit (Yjs)
-- **Export**: Cloudflare Queues → Google Docs, Confluence, PDF
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 Writa/
-├── Apple App/Writa/Writa/
-│   ├── Models/              # SwiftData models (Document, Folder)
-│   ├── Services/            # Auth & Sync services (✅ Ready)
-│   ├── Theme/               # Design system & tokens
-│   ├── Views/
-│   │   ├── MainWindow/      # Document list & editor
-│   │   ├── Editor/          # TipTap WebView wrapper
-│   │   ├── Settings/        # Toolbar customization
-│   │   └── Community/       # Content library (planned)
-│   └── Editor/              # TipTap editor (✅ Working)
-│       ├── index.html       # ES modules from CDN
-│       └── vendor/esm/      # 36 local ES modules
-├── CLERK_CLOUDFLARE_SETUP.md    # 🎯 Start here for production
-├── TECH_STACK_COMPARISON.md     # Compare backend options
-├── API_INTEGRATION.md           # Alternative integrations
-└── SETUP.md                     # Complete technical docs
+├── 📱 Apple App/              macOS application
+│   ├── Writa/                Xcode project
+│   ├── Scripts/              Deployment scripts
+│   └── Notarized Builds/     Distribution builds
+│
+├── 🌐 writa-web/             Download website
+│   ├── app/                  Next.js pages
+│   └── public/               Static assets
+│
+└── 📚 Documentation/         Guides & references
 ```
 
-## Getting Started
+## 📚 Documentation Index
 
-### Quick Start (macOS App)
+### Getting Started
+- **[START_HERE.md](START_HERE.md)** - Begin here! Current status & next steps
+- **[COMPLETE_DEPLOYMENT_GUIDE.md](COMPLETE_DEPLOYMENT_GUIDE.md)** - Full deployment walkthrough
 
-1. Open `Apple App/Writa/Writa.xcodeproj` in Xcode
-2. Select the Writa scheme
-3. Build and run (⌘R)
-4. Create a new document and start writing!
+### Reference Guides
+- **[DEPLOYMENT_SUMMARY.md](DEPLOYMENT_SUMMARY.md)** - Quick overview of setup
+- **[writa-web/QUICK_START.md](writa-web/QUICK_START.md)** - Website quick reference
+- **[writa-web/DEPLOYMENT.md](writa-web/DEPLOYMENT.md)** - Detailed website deployment
+- **[writa-web/README.md](writa-web/README.md)** - Website development
 
-**Requirements:**
-- Xcode 15+
-- macOS 14.0+ deployment target
+### Scripts & Tools
+- **[Apple App/Scripts/README_DMG_CREATION.md](Apple App/Scripts/README_DMG_CREATION.md)** - Creating DMGs
+- **[Apple App/Scripts/README_UPLOAD.md](Apple App/Scripts/README_UPLOAD.md)** - Uploading to R2
+- **[Apple App/Scripts/create-dmg.sh](Apple App/Scripts/create-dmg.sh)** - DMG creation script
+- **[Apple App/Scripts/upload-to-cloudflare.sh](Apple App/Scripts/upload-to-cloudflare.sh)** - R2 upload script
 
-### Production Setup
+## 🌐 Live URLs
 
-To deploy with authentication and cloud sync:
+- **Website**: https://writa-web.pages.dev → https://getwrita.com (add custom domain)
+- **Download**: https://downloads.getwrita.com/Writa-0.1.dmg (after R2 domain setup)
+- **Support**: support@getwrita.com
 
-1. **Setup Authentication & Backend** (Recommended)
-   - Follow `CLERK_CLOUDFLARE_SETUP.md` for complete Clerk + Cloudflare setup
-   - Estimated time: 2-3 hours
+## ⚡ Common Tasks
 
-2. **Alternative Stacks** (If needed)
-   - See `TECH_STACK_COMPARISON.md` for Firebase, Supabase, or custom API options
-   - Follow `API_INTEGRATION.md` for implementation guides
+### Create DMG from Notarized App
+```bash
+cd "Apple App"
+./Scripts/create-dmg.sh "Notarized Builds/01/Writa.app"
+```
 
-3. **Editor Details**
-   - See `SETUP.md` for complete technical documentation
-   - Editor works offline with CDN (online required currently)
-   - Local ES modules available in `Apple App/Writa/Writa/Editor/vendor/esm/`
+### Upload DMG to Cloudflare R2
+```bash
+cd "Apple App"
+./Scripts/upload-to-cloudflare.sh "Notarized Builds/01/Writa-0.1.dmg"
+```
 
-### What's Working Right Now
+### Deploy Website
+```bash
+cd writa-web
+npm run pages:build
+wrangler pages deploy .vercel/output/static --project-name=writa-web --commit-dirty=true
+```
 
-✅ **Full rich-text editor** with 30+ formatting tools  
-✅ **Local-first** storage with SwiftData  
-✅ **Beautiful UI** with Liquid Glass toolbar  
-✅ **Keyboard shortcuts** for power users  
-✅ **Theme system** (light/dark mode)  
-✅ **Offline mode** (no cloud required for local use)
+### Test Website Locally
+```bash
+cd writa-web
+npm run dev
+# Opens at http://localhost:3002
+```
 
-🚧 **Cloud sync** ready but needs backend deployment  
-🚧 **Authentication** infrastructure ready, needs Clerk configuration
+## 🔄 Update Workflow
 
-## Features
+For new versions, see **[COMPLETE_DEPLOYMENT_GUIDE.md](COMPLETE_DEPLOYMENT_GUIDE.md#future-updates)**
 
-### ✅ Completed (macOS)
-- [x] Three-column navigation (Sidebar + List + Detail)
-- [x] Document organization (Folders, Tags, Smart Filters)
-- [x] Theme system with design tokens
-- [x] Settings with appearance customization
-- [x] Community window (separate window)
-- [x] Native menus and keyboard shortcuts
-- [x] **TipTap editor integration** (WebView with ES modules)
-- [x] **Native ↔ Editor bridge** (Swift ↔ JavaScript)
-- [x] **30+ editor tools** (Bold, Italic, Headings, Lists, Tables, Images, etc.)
-- [x] **Liquid Glass toolbar** (Customizable, drag & drop)
-- [x] **Keyboard shortcuts** (⌘B, ⌘I, ⌘K, and 15+ more)
-- [x] **Auth infrastructure** (Ready for Clerk)
-- [x] **Sync service** (Ready for Cloudflare)
+Quick version:
+1. Archive & notarize in Xcode
+2. Create DMG: `./Scripts/create-dmg.sh "path/to/Writa.app"`
+3. Upload: `./Scripts/upload-to-cloudflare.sh "path/to/Writa.dmg"`
+4. Update website version in `writa-web/app/page.tsx`
+5. Redeploy website
 
-### 🚧 In Progress
-- [ ] Clerk authentication integration
-- [ ] Cloudflare Workers API deployment
-- [ ] Image upload to R2
-- [ ] Link dialog UI
-- [ ] Color picker UI
+## 🛠️ Tech Stack
 
-### 📋 Planned
-- [ ] Real-time collaboration (PartyKit + Yjs)
-- [ ] Export pipeline (Google Docs, Confluence, PDF)
-- [ ] Community content library
-- [ ] Prompt snippets
-- [ ] iOS app
-- [ ] Android app
-- [ ] Windows app
+### macOS App
+- Swift
+- SwiftUI
+- macOS 14.0+
 
-## Tech Stack
+### Website
+- Next.js 15
+- React 19
+- Tailwind CSS
+- TypeScript
+- Cloudflare Pages
 
-### Frontend
-- **Framework**: SwiftUI (macOS native)
-- **Editor**: TipTap 2.1.13 + ProseMirror
-- **Database**: SwiftData (SQLite)
-- **Bridge**: WKWebView (Swift ↔ JavaScript)
+### Infrastructure
+- Cloudflare R2 (DMG hosting)
+- Cloudflare Pages (website hosting)
+- Custom domains on Cloudflare
 
-### Backend (Ready to Deploy)
-- **Auth**: Clerk (10K MAU free)
-- **API**: Cloudflare Workers (100K req/day free)
-- **Database**: Cloudflare D1 (SQLite at edge)
-- **Storage**: Cloudflare R2 (S3-compatible)
-- **Collaboration**: PartyKit + Yjs (planned)
+## ✅ Current Status
 
-### Why This Stack?
-- ⚡️ **Performance**: Edge computing, <50ms latency worldwide
-- 💰 **Cost**: $0-30/month for 1,000+ users
-- 🎨 **UX**: Best-in-class auth & editor experience
-- 🚀 **Scale**: 0 → 100K users without infrastructure changes
+- [x] DMG packaging configured
+- [x] Upload scripts configured (uses `--remote`)
+- [x] Website built and deployed
+- [x] DMG uploaded to remote R2
+- [x] All documentation complete
+- [ ] R2 custom domain connected (manual step)
+- [ ] Website custom domain added (manual step)
 
-See `TECH_STACK_COMPARISON.md` for detailed analysis.
+**See [START_HERE.md](START_HERE.md) for next steps.**
 
-## Documentation
+## 💰 Hosting Cost
 
-- 🎯 **Start Here**: `CLERK_CLOUDFLARE_SETUP.md` - Production deployment guide
-- 📊 **Compare Options**: `TECH_STACK_COMPARISON.md` - Detailed stack comparison
-- 🔧 **Technical Docs**: `SETUP.md` - Complete implementation details
-- 🔌 **Integrations**: `API_INTEGRATION.md` - Firebase, Supabase, custom APIs
+**FREE** - Everything runs on Cloudflare's free tier! 🎉
 
-## Contributing
+- Cloudflare Pages: Unlimited deployments
+- Cloudflare R2: 10 GB storage (only using 6.7 MB)
+- Bandwidth: Unlimited
 
-Currently in private development. Contributions will be accepted once we open source.
+## 🆘 Support
 
-## License
+- **Questions?** Check the documentation index above
+- **Issues?** See troubleshooting in COMPLETE_DEPLOYMENT_GUIDE.md
+- **Email**: support@getwrita.com
 
-Proprietary - All rights reserved
+---
+
+© 2025 Orriginal. All rights reserved.

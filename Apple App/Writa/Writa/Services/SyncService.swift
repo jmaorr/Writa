@@ -155,8 +155,8 @@ class SyncService {
         // Smart optimization: Skip sync if no local changes and recently synced
         let hasLocalChanges = await MainActor.run {
             let dirtyDocs = documentManager?.documentsNeedingSync().count ?? 0
-            // Don't check workspaces here - always pull to catch server changes
-            return dirtyDocs > 0
+            let dirtyWorkspaces = documentManager?.workspacesNeedingSync().count ?? 0
+            return dirtyDocs > 0 || dirtyWorkspaces > 0
         }
         
         // Only skip if: no local changes AND synced in last 30 seconds
@@ -187,71 +187,98 @@ class SyncService {
         }
         
         do {
-            // Step 1: Pull ALL data from server (workspaces don't use incremental sync)
-            // For documents, we still use incremental sync
+            // Step 1: Pull changes from server since last sync
+            // Use actual incremental sync for both documents and workspaces
             let since = lastSyncDate.map { Int($0.timeIntervalSince1970 * 1000) } ?? 0
+            print("📥 Pulling changes since: \(since) (\(lastSyncDate?.formatted() ?? "never"))")
+            
             let pullResponse: SyncPullResponse = try await apiClient.get(
                 "/sync",
                 queryItems: [
-                    URLQueryItem(name: "since", value: "0"),  // Always get all workspaces
+                    URLQueryItem(name: "since", value: String(since)),
                     URLQueryItem(name: "includeDeleted", value: "true")
                 ]
             )
             
-            // Step 2: Compare and merge - determine what needs to be pushed vs pulled
+            // Step 2: Collect local changes FIRST (before applying server changes)
+            // This prevents server data from overwriting uncommitted local changes
             let (documentsToPush, workspacesToPush) = await MainActor.run { () -> ([DocumentChange], [WorkspaceChange]) in
-                // Apply server changes first (creates/updates local items from server)
-                applyServerChanges(pullResponse)
-                
-                // Now collect local items that need to push to server
-                // Documents: use dirty flag (they change frequently)
+                // Collect local items that need to push to server
                 let dirtyDocs = documentManager?.documentsNeedingSync() ?? []
+                print("📤 Found \(dirtyDocs.count) dirty documents")
                 
                 // Filter out documents that would conflict (server version > local version)
+                // For conflicts, update local version to match server so next edit can sync
                 let docsToSync = dirtyDocs.filter { doc in
                     if let serverDoc = pullResponse.documents.first(where: { $0.id == doc.id.uuidString }) {
-                        // Only push if local version >= server version
-                        return doc.serverVersion >= serverDoc.version
+                        // Check if local is behind server
+                        if doc.serverVersion < serverDoc.version {
+                            // Update local version to match server (so next edit will have correct version)
+                            doc.serverVersion = serverDoc.version
+                            // Keep isDirty so it syncs on next attempt with updated version
+                            return false // Skip this sync, will sync next time
+                        }
+                        return true // Versions match or local is newer - can sync
                     }
                     return true // New local document
                 }
                 
                 print("📤 Documents needing sync: \(docsToSync.count)")
                 
-                // Workspaces: compare by updatedAt timestamp
-                let allLocalWorkspaces = documentManager?.getAllWorkspaces() ?? []
-                var workspacesToSync: [Workspace] = []
+                // Workspaces: collect dirty workspaces + workspaces referenced by documents
+                var workspaceDict: [UUID: Workspace] = [:]
                 
-                for localWs in allLocalWorkspaces {
-                    // Find matching server workspace
-                    if let serverWs = pullResponse.workspaces.first(where: { $0.id == localWs.id.uuidString }) {
-                        // Skip if already synced (versions match and timestamps are close)
-                        if localWs.serverVersion == serverWs.version {
-                            // Already in sync
-                            continue
+                // Add explicitly dirty workspaces
+                let dirtyWorkspaces = documentManager?.workspacesNeedingSync() ?? []
+                for ws in dirtyWorkspaces {
+                    workspaceDict[ws.id] = ws
+                }
+                
+                // Add workspaces referenced by dirty documents (including parent chain if not on server)
+                for doc in docsToSync {
+                    if let workspace = doc.workspace {
+                        // Walk up the workspace hierarchy and include any that don't exist on server
+                        var current: Workspace? = workspace
+                        while let ws = current {
+                            let existsOnServer = pullResponse.workspaces.contains { $0.id == ws.id.uuidString }
+                            if !existsOnServer && workspaceDict[ws.id] == nil {
+                                print("   📎 Including workspace '\(ws.name)' (FK dependency)")
+                                workspaceDict[ws.id] = ws
+                            }
+                            current = ws.parent
                         }
-                        
-                        // Compare timestamps - push if local is genuinely newer
-                        if localWs.updatedAt > serverWs.updatedAt && localWs.serverVersion >= serverWs.version {
-                            print("   📤 \(localWs.name): local is newer (local: \(localWs.updatedAt), server: \(serverWs.updatedAt))")
-                            workspacesToSync.append(localWs)
-                        }
-                    } else {
-                        // New local workspace - needs to be pushed
-                        print("   📤 \(localWs.name): new local workspace")
-                        workspacesToSync.append(localWs)
                     }
+                }
+                
+                // Filter out workspaces that would conflict (server version > local version)
+                let workspacesToSync = workspaceDict.values.filter { ws in
+                    if let serverWs = pullResponse.workspaces.first(where: { $0.id == ws.id.uuidString }) {
+                        // Check if local is behind server
+                        if ws.serverVersion < serverWs.version {
+                            // Update local version to match server
+                            ws.serverVersion = serverWs.version
+                            return false // Skip this sync
+                        }
+                        return true // Versions match or local is newer
+                    }
+                    return true // New local workspace
                 }
                 
                 print("📤 Workspaces to push: \(workspacesToSync.count)")
                 
+                // Map to DTOs - server handles ordering (topological sort)
                 let docChanges = docsToSync.map { createDocumentChange(from: $0) }
                 let wsChanges = workspacesToSync.map { createWorkspaceChange(from: $0) }
                 
                 return (docChanges, wsChanges)
             }
             
-            // Step 3: Push local changes to server
+            // Step 3: Apply server changes (after collecting local changes to prevent overwrites)
+            await MainActor.run {
+                applyServerChanges(pullResponse)
+            }
+            
+            // Step 4: Push local changes to server
             if !documentsToPush.isEmpty || !workspacesToPush.isEmpty {
                 let pushRequest = SyncPushRequest(
                     documents: documentsToPush.isEmpty ? nil : documentsToPush,
@@ -260,8 +287,9 @@ class SyncService {
                 )
                 
                 let pushResponse: SyncPushResponse = try await apiClient.post("/sync", body: pushRequest)
+                print("📥 Push response: \(pushResponse.results.documents.count) docs, \(pushResponse.results.workspaces.count) workspaces")
                 
-                // Step 4: Mark pushed items as synced
+                // Step 5: Mark pushed items as synced
                 await MainActor.run {
                     for result in pushResponse.results.documents {
                         if let doc = documentManager?.findDocument(byId: result.id) {
@@ -313,11 +341,15 @@ class SyncService {
         // Apply workspace changes from server
         for serverWs in response.workspaces {
             if let localWs = dm.findWorkspace(byId: serverWs.id) {
-                // Compare timestamps - server wins if newer
-                if serverWs.updatedAt > localWs.updatedAt {
-                    print("   📥 Updating workspace: \(serverWs.name) (server is newer)")
-                    dm.updateWorkspaceFromServer(localWs, with: serverWs)
+                // Skip if local workspace has uncommitted changes (isDirty)
+                if localWs.isDirty {
+                    print("   ⏭️ Skipping workspace '\(serverWs.name)': has local uncommitted changes")
+                    continue
                 }
+                
+                // Apply server changes (local is clean, so server is source of truth)
+                print("   📥 Updating workspace: \(serverWs.name)")
+                dm.updateWorkspaceFromServer(localWs, with: serverWs)
             } else {
                 // New workspace from server - create locally
                 print("   📥 Creating workspace from server: \(serverWs.name)")
@@ -328,26 +360,27 @@ class SyncService {
         // Apply document changes from server
         for serverDoc in response.documents {
             if let localDoc = dm.findDocument(byId: serverDoc.id) {
-                // Compare timestamps - server wins if newer
-                if serverDoc.updatedAt > localDoc.updatedAt {
-                    print("   📥 Updating document: \(serverDoc.title) (server is newer)")
-                    dm.updateDocumentFromServer(localDoc, with: serverDoc)
+                print("   📄 Found local document '\(serverDoc.title)': isDirty=\(localDoc.isDirty), isTrashed=\(localDoc.isTrashed)")
+                
+                // Skip if local document has uncommitted changes (isDirty)
+                // These will be pushed in the current sync cycle
+                if localDoc.isDirty {
+                    print("   ⏭️ Skipping '\(serverDoc.title)': has local uncommitted changes")
+                    continue
                 }
+                
+                // Apply server changes (local is clean, so server is source of truth)
+                print("   📥 Updating document: \(serverDoc.title) -> isTrashed: \(localDoc.isTrashed) → \(serverDoc.isDeleted)")
+                dm.updateDocumentFromServer(localDoc, with: serverDoc)
             } else {
                 // New document from server - create locally
-                print("   📥 Creating document from server: \(serverDoc.title)")
+                print("   📥 Creating document from server: \(serverDoc.title) (isDeleted: \(serverDoc.isDeleted))")
                 dm.createDocumentFromServer(serverDoc)
             }
         }
         
-        // Handle deleted documents
-        for deletedId in response.deletedDocumentIds {
-            if let localDoc = dm.findDocument(byId: deletedId) {
-                print("   🗑️ Server deleted document: \(localDoc.title)")
-                localDoc.isDeleted = true
-                localDoc.deletedAt = Date()
-            }
-        }
+        // No longer needed - deletedDocumentIds is redundant when includeDeleted=true
+        // Deleted documents come through the main documents array with isDeleted flag
     }
     
     // MARK: - Document Sync
@@ -457,8 +490,8 @@ class SyncService {
             tags: document.tags,
             isFavorite: document.isFavorite,
             isPinned: document.isPinned,
-            isDeleted: document.isDeleted,
-            deletedAt: document.deletedAt.map { Int($0.timeIntervalSince1970 * 1000) },
+            isDeleted: document.isTrashed,  // Map local isTrashed to API isDeleted
+            deletedAt: document.trashedAt.map { Int($0.timeIntervalSince1970 * 1000) },
             version: document.serverVersion,
             createdAt: Int(document.createdAt.timeIntervalSince1970 * 1000),
             updatedAt: Int(document.updatedAt.timeIntervalSince1970 * 1000)

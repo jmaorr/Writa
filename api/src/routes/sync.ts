@@ -131,7 +131,6 @@ syncRoutes.post("/", async (c) => {
   console.log("Sync push request received:", {
     documentsCount: body.documents?.length || 0,
     workspacesCount: body.workspaces?.length || 0,
-    workspaces: body.workspaces
   });
 
   const results = {
@@ -142,7 +141,38 @@ syncRoutes.post("/", async (c) => {
   };
 
   try {
-    // Process documents
+    // SERVER-SIDE TOPOLOGICAL SORT: Sort workspaces parent-first
+    // This ensures foreign key integrity regardless of client order
+    const sortedWorkspaces = body.workspaces?.length 
+      ? topologicalSortWorkspaces(body.workspaces)
+      : [];
+    
+    if (sortedWorkspaces.length > 0) {
+      console.log("Sorted workspaces for sync:", sortedWorkspaces.map(ws => ({
+        name: ws.name,
+        parent_id: ws.parent_id
+      })));
+    }
+
+    // Process workspaces FIRST (in sorted order) to satisfy FK constraints for documents
+    for (const ws of sortedWorkspaces) {
+      const result = await syncWorkspace(c.env.DB, userId, ws);
+      if (result.conflict) {
+        results.conflicts.push({
+          type: "workspace",
+          id: ws.id,
+          serverVersion: result.serverVersion!,
+        });
+      } else {
+        results.workspaces.push({
+          id: ws.id,
+          version: result.version,
+          status: result.status,
+        });
+      }
+    }
+
+    // Process documents AFTER workspaces
     if (body.documents?.length) {
       for (const doc of body.documents) {
         const result = await syncDocument(c.env.DB, userId, doc);
@@ -155,26 +185,6 @@ syncRoutes.post("/", async (c) => {
         } else {
           results.documents.push({
             id: doc.id,
-            version: result.version,
-            status: result.status,
-          });
-        }
-      }
-    }
-
-    // Process workspaces
-    if (body.workspaces?.length) {
-      for (const ws of body.workspaces) {
-        const result = await syncWorkspace(c.env.DB, userId, ws);
-        if (result.conflict) {
-          results.conflicts.push({
-            type: "workspace",
-            id: ws.id,
-            serverVersion: result.serverVersion!,
-          });
-        } else {
-          results.workspaces.push({
-            id: ws.id,
             version: result.version,
             status: result.status,
           });
@@ -206,6 +216,44 @@ syncRoutes.post("/", async (c) => {
     }, 500);
   }
 });
+
+// Topological sort: Ensure parents are processed before children
+function topologicalSortWorkspaces(workspaces: WorkspaceChange[]): WorkspaceChange[] {
+  const result: WorkspaceChange[] = [];
+  const visited = new Set<string>();
+  const visiting = new Set<string>(); // Detect cycles
+  const wsMap = new Map(workspaces.map(ws => [ws.id, ws]));
+  
+  function visit(ws: WorkspaceChange): void {
+    // Already processed
+    if (visited.has(ws.id)) return;
+    
+    // Cycle detection
+    if (visiting.has(ws.id)) {
+      console.warn("Cycle detected in workspace hierarchy:", ws.name);
+      return;
+    }
+    
+    visiting.add(ws.id);
+    
+    // Visit parent first if it exists and is in our batch
+    if (ws.parent_id && wsMap.has(ws.parent_id)) {
+      visit(wsMap.get(ws.parent_id)!);
+    }
+    
+    visiting.delete(ws.id);
+    visited.add(ws.id);
+    result.push(ws);
+  }
+  
+  // Visit all workspaces
+  for (const ws of workspaces) {
+    visit(ws);
+  }
+  
+  console.log(`Topologically sorted ${workspaces.length} workspaces (parents first)`);
+  return result;
+}
 
 // Helper functions for syncing individual items
 

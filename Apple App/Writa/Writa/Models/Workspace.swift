@@ -65,7 +65,7 @@ final class Workspace {
 
 extension Workspace {
     var documentCount: Int {
-        documents.filter { !$0.isDeleted }.count
+        documents.filter { !$0.isTrashed }.count
     }
     
     var totalDocumentCount: Int {
