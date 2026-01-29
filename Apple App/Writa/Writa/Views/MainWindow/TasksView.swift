@@ -135,7 +135,7 @@ struct TasksView: View {
     
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Tasks", systemImage: "checkmark.circle")
+            Label("No Tasks", systemImage: "checkmark.square")
         } description: {
             Text("Tasks you create in your documents will appear here.")
         }
@@ -157,7 +157,7 @@ struct TasksView: View {
     
     private var taskList: some View {
         ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+            LazyVStack(spacing: 4, pinnedViews: [.sectionHeaders]) {
                 switch viewMode {
                 case .groupedByDocument:
                     groupedTaskList
@@ -227,28 +227,25 @@ struct TasksView: View {
                 selectedDocumentIDs = [doc.id]
             }
         } label: {
-            HStack {
-                Image(systemName: "doc.text")
-                    .foregroundStyle(.secondary)
-                
-                Text(document.displayTitle)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(document.displayTitle)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    
+                    Text(document.workspace?.name ?? "No Workspace")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
                 
                 Spacer()
                 
-                let incomplete = document.incompleteTaskCount
-                let total = document.totalTaskCount
-                Text("\(incomplete)/\(total)")
+                Text("\(document.incompleteTaskCount)")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-                
-                Image(systemName: "chevron.right")
-                    .font(.caption2)
-                    .foregroundStyle(.quaternary)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
             .background(Color(nsColor: .controlBackgroundColor).opacity(0.95))
             .contentShape(Rectangle())
         }
@@ -347,13 +344,15 @@ struct TaskRowView: View {
     let onTap: () -> Void
     
     @State private var isHovering = false
+    @State private var isCardHovering = false
     
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Clickable Checkbox
+        // Card container
+        HStack(alignment: .top, spacing: 10) {
+            // Clickable Checkbox (inside card)
             Button(action: onToggle) {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
+                Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 18))
                     .foregroundStyle(task.isCompleted ? .green : isHovering ? .green : .secondary)
                     .contentTransition(.symbolEffect(.replace))
             }
@@ -365,48 +364,50 @@ struct TaskRowView: View {
             
             // Content (clickable to open document)
             Button(action: onTap) {
-                HStack(alignment: .top, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        // Title
-                        Text(task.title)
-                            .font(.body)
-                            .foregroundStyle(task.isCompleted ? .secondary : .primary)
-                            .strikethrough(task.isCompleted)
+                VStack(alignment: .leading, spacing: 4) {
+                    // Title
+                    Text(task.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                        .strikethrough(task.isCompleted)
+                        .lineLimit(2)
+                    
+                    // Description
+                    if let description = task.description {
+                        Text(description)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
                             .lineLimit(2)
-                        
-                        // Description
-                        if let description = task.description {
-                            Text(description)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        }
-                        
-                        // Document name (in flat view)
-                        if showDocumentName {
-                            HStack(spacing: 4) {
-                                Image(systemName: "doc.text")
-                                    .font(.caption2)
-                                Text(task.documentTitle)
-                                    .font(.caption)
-                            }
-                            .foregroundStyle(.tertiary)
-                        }
                     }
                     
-                    Spacer()
-                    
-                    // Arrow to indicate navigation
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.quaternary)
+                    // Document name (in flat view)
+                    if showDocumentName {
+                        Text(task.documentTitle)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(nsColor: .textBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(nsColor: .separatorColor).opacity(isCardHovering ? 0.8 : 0.6), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 1)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .onHover { hovering in
+            isCardHovering = hovering
+        }
     }
 }
 

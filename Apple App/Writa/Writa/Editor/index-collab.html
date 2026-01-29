@@ -1326,11 +1326,43 @@
                         e.preventDefault()
                         e.stopPropagation()
                         const pos = getPos()
-                        if (typeof pos === 'number') {
-                            const currentNode = editor.state.doc.nodeAt(pos)
-                            if (currentNode) {
-                                editor.chain().deleteRange({ from: pos, to: pos + currentNode.nodeSize }).run()
-                            }
+                        if (typeof pos !== 'number') return
+                        
+                        // Replicate the Enter key behavior for deleting empty snippets
+                        // Position cursor at start of snippet to get proper selection context
+                        editor.commands.setTextSelection(pos + 2)
+                        
+                        const { state } = editor
+                        const { $from } = state.selection
+                        const snippetAncestor = findAncestor($from, 'promptSnippet')
+                        if (!snippetAncestor) return
+                        
+                        const { depth: snippetDepth } = snippetAncestor
+                        const listAncestor = findAncestor($from, 'promptSnippetList')
+                        if (!listAncestor) return
+                        
+                        const { node: list, depth: listDepth } = listAncestor
+                        const listStart = $from.before(listDepth)
+                        const listEnd = $from.after(listDepth)
+                        
+                        if (list.childCount === 1) {
+                            // Only snippet in list - delete whole list
+                            editor.chain()
+                                .deleteRange({ from: listStart, to: listEnd })
+                                .insertContentAt(listStart, { type: 'paragraph' })
+                                .setTextSelection(listStart + 1)
+                                .run()
+                        } else {
+                            // Multiple snippets - delete just this one
+                            const snippetStart = $from.before(snippetDepth)
+                            const snippetEnd = $from.after(snippetDepth)
+                            const snippetSize = snippetEnd - snippetStart
+                            const newListEnd = listEnd - snippetSize
+                            editor.chain()
+                                .deleteRange({ from: snippetStart, to: snippetEnd })
+                                .insertContentAt(newListEnd, { type: 'paragraph' })
+                                .setTextSelection(newListEnd + 1)
+                                .run()
                         }
                     })
                     
@@ -1695,13 +1727,14 @@
                             })
                         }
                         
-                        // Send content change to native app (for document list update)
+                        // Send content change to native app (for document list update and task extraction)
                         const text = editor.getText()
                         const firstLine = text.split('\n')[0]?.trim().slice(0, 100) || ''
                         
                         sendToSwift({
                             type: 'contentChange',
                             html: editor.getHTML(),
+                            json: editor.getJSON(),  // For task extraction
                             text: text,
                             title: firstLine,  // For document list
                         });
@@ -1715,15 +1748,21 @@
                 window.editor = editor
                 sendToSwift({ type: 'debug', message: `Editor instance created successfully, editable: ${editor.isEditable}` })
                 
-                // Focus the editor
+                // Focus the editor and handle new document initialization
                 setTimeout(() => {
                     const isEmpty = editor.isEmpty
                     sendToSwift({ type: 'debug', message: `Editor isEmpty: ${isEmpty}, HTML: ${editor.getHTML().slice(0, 100)}` })
                     
-                    // Don't insert content - let Yjs handle the document state
-                    // The Collaboration extension manages content automatically
-                    
-                    editor.commands.focus('end')
+                    // For new/empty documents, start with a Title (H1) instead of body paragraph
+                    if (isEmpty) {
+                        editor.chain()
+                            .setContent('<h1></h1>')
+                            .focus('end')
+                            .run()
+                        sendToSwift({ type: 'debug', message: 'Initialized new document with Title format' })
+                    } else {
+                        editor.commands.focus('end')
+                    }
                     sendToSwift({ type: 'debug', message: 'Editor focused' })
                 }, 100)
                 
@@ -1836,9 +1875,42 @@
                                 }
                             }, 10)
                         } else if (action === 'delete') {
-                            const currentNode = editor.state.doc.nodeAt(taskCardPos)
-                            if (currentNode) {
-                                editor.chain().deleteRange({ from: taskCardPos, to: taskCardPos + currentNode.nodeSize }).run()
+                            // Replicate the Enter key behavior for deleting empty task cards
+                            // Position cursor at start of task card and simulate Enter on empty
+                            editor.commands.setTextSelection(taskCardPos + 2)
+                            
+                            const { state } = editor
+                            const { $from } = state.selection
+                            const taskAncestor = findAncestor($from, 'taskCard')
+                            if (!taskAncestor) return
+                            
+                            const { depth: taskCardDepth } = taskAncestor
+                            const listAncestor = findAncestor($from, 'taskCardList')
+                            if (!listAncestor) return
+                            
+                            const { node: list, depth: listDepth } = listAncestor
+                            const listEnd = $from.after(listDepth)
+                            
+                            // Hide action bar immediately
+                            actionBar.classList.remove('visible')
+                            
+                            if (list.childCount === 1) {
+                                // Only task in list - delete whole list
+                                const listStart = $from.before(listDepth)
+                                editor.chain()
+                                    .deleteRange({ from: listStart, to: listEnd })
+                                    .insertContentAt(listStart, { type: 'paragraph' })
+                                    .setTextSelection(listStart + 1)
+                                    .run()
+                            } else {
+                                // Multiple tasks - delete just this one
+                                const taskStart = $from.before(taskCardDepth)
+                                const taskEnd = $from.after(taskCardDepth)
+                                editor.chain()
+                                    .deleteRange({ from: taskStart, to: taskEnd })
+                                    .insertContentAt(listEnd - (taskEnd - taskStart), { type: 'paragraph' })
+                                    .setTextSelection(listEnd - (taskEnd - taskStart) + 1)
+                                    .run()
                             }
                         }
                     })
@@ -2024,6 +2096,38 @@
                 
                 // Task Card commands
                 insertTaskCard: () => editor?.commands.insertTaskCard(),
+                
+                // Set task checked state by node index (called from Swift when toggling in task list)
+                setTaskChecked: (nodeIndex, isChecked) => {
+                    if (!editor) return false
+                    
+                    let currentIndex = 0
+                    let found = false
+                    
+                    editor.state.doc.descendants((node, pos) => {
+                        if (found) return false  // Stop traversal
+                        if (node.type.name === 'taskCard') {
+                            if (currentIndex === nodeIndex) {
+                                editor.chain()
+                                    .command(({ tr, dispatch }) => {
+                                        if (dispatch) {
+                                            tr.setNodeMarkup(pos, undefined, {
+                                                ...node.attrs,
+                                                checked: isChecked
+                                            })
+                                        }
+                                        return true
+                                    })
+                                    .run()
+                                found = true
+                                return false  // Stop traversal
+                            }
+                            currentIndex++
+                        }
+                    })
+                    
+                    return found
+                },
                 toggleTaskCard: () => {
                     if (editor?.isActive('taskCard')) {
                         // Exit task card

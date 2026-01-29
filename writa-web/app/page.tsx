@@ -29,7 +29,7 @@ export default function Home() {
           {/* Download Button Area */}
           <div className="flex flex-col items-center gap-4 mb-20">
             <a
-              href="https://downloads.getwrita.com/Writa-0.2.dmg"
+              href="https://downloads.getwrita.com/Writa-0.3.dmg"
               className="group relative px-8 py-4 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-2xl shadow-xl hover:shadow-2xl hover:shadow-purple-500/30 transition-all duration-300 flex items-center gap-3 transform hover:-translate-y-1"
             >
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-purple-500 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -37,7 +37,7 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
               <span className="text-lg relative z-10">Download for Mac</span>
-              <span className="text-sm bg-purple-700/50 px-2 py-1 rounded-md relative z-10 border border-purple-400/30">v0.2 Beta</span>
+              <span className="text-sm bg-purple-700/50 px-2 py-1 rounded-md relative z-10 border border-purple-400/30">v0.3 Beta</span>
             </a>
             
             <div className="text-sm text-gray-600 dark:text-gray-400 font-medium flex items-center gap-2">

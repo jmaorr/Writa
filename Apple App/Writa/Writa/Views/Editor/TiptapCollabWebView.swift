@@ -247,7 +247,7 @@ struct TiptapCollabWebView: NSViewRepresentable {
     
     // Callbacks
     var onReady: (() -> Void)?
-    var onContentChange: ((String, String) -> Void)?  // (plainText, title) for document list update
+    var onContentChange: ((String, String, Data?) -> Void)?  // (plainText, title, jsonContent) for document list update and task extraction
     var onMetaChange: ((DocumentMeta) -> Void)?
     var onConnectionChange: ((ConnectionStatus) -> Void)?
     var onSelectionChange: ((EditorState) -> Void)?
@@ -412,8 +412,13 @@ struct TiptapCollabWebView: NSViewRepresentable {
             case "contentChange":
                 let text = body["text"] as? String ?? ""
                 let title = body["title"] as? String ?? ""
+                // Parse JSON content for task extraction
+                var jsonData: Data?
+                if let jsonDict = body["json"] as? [String: Any] {
+                    jsonData = try? JSONSerialization.data(withJSONObject: jsonDict)
+                }
                 DispatchQueue.main.async {
-                    self.parent.onContentChange?(text, title)
+                    self.parent.onContentChange?(text, title, jsonData)
                 }
                 
             case "metaChange":

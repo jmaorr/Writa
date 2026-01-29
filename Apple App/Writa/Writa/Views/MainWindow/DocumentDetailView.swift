@@ -20,6 +20,7 @@ struct DocumentDetailView: View {
     @State private var wordCount: Int = 0
     @State private var isEditorReady = false
     @State private var currentDocumentId: UUID?
+    @State private var keyboardMonitor: Any?
     
     // MARK: - Editor View Selection
     
@@ -55,9 +56,16 @@ struct DocumentDetailView: View {
             setupKeyboardShortcuts()
             currentDocumentId = document.id
         }
+        .onDisappear {
+            // Clean up keyboard monitor when view disappears
+            removeKeyboardMonitor()
+        }
         .onChange(of: document.id) { oldValue, newValue in
             // Document changed - swap content in existing WebView (no skeleton needed)
             handleDocumentChange(from: oldValue, to: newValue)
+            
+            // Re-setup keyboard shortcuts for the new document
+            setupKeyboardShortcuts()
         }
         .onChange(of: colorScheme) { _, _ in
             // Re-apply theme when color scheme changes
@@ -239,11 +247,26 @@ struct DocumentDetailView: View {
     
     // MARK: - Keyboard Shortcuts
     
+    private func removeKeyboardMonitor() {
+        if let monitor = keyboardMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyboardMonitor = nil
+        }
+    }
+    
     private func setupKeyboardShortcuts() {
+        // Remove any existing monitor first to prevent duplicate handlers
+        removeKeyboardMonitor()
+        
+        // Capture current document ID to verify shortcuts fire for correct document
+        let targetDocumentId = document.id
+        
         // Register keyboard shortcuts via NSEvent monitor
         // These will forward to the TipTap editor
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            guard let webView = webView else { return event }
+        keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [self] event in
+            // Only process if this is still the current document
+            guard currentDocumentId == targetDocumentId,
+                  let webView = webView else { return event }
             
             let flags = event.modifierFlags
             let isCmd = flags.contains(.command)
@@ -268,7 +291,11 @@ struct DocumentDetailView: View {
             case ("e", false, false): webView.toggleCode(); return nil
             case ("k", false, false): showLinkDialog(); return nil
             case ("x", true, false): webView.toggleStrike(); return nil
-            case ("h", true, false): webView.evaluateJavaScript("editorBridge.toggleHighlight()"); return nil
+            case ("h", true, false):
+                webView.evaluateJavaScript("editorBridge.toggleHighlight()")
+                // Notify toolbar to toggle color picker
+                NotificationCenter.default.post(name: NSNotification.Name("ToggleHighlightColors"), object: nil)
+                return nil
             
             // Lists
             case ("7", true, false): webView.toggleOrderedList(); return nil
@@ -455,7 +482,7 @@ struct TiptapCollabEditorView: View {
                             }
                         }
                     },
-                    onContentChange: { plainText, title in
+                    onContentChange: { plainText, title, jsonContent in
                         // Update word count for display
                         wordCount = plainText.isEmpty ? 0 : plainText.split(separator: " ").count
                         
@@ -468,7 +495,14 @@ struct TiptapCollabEditorView: View {
                         if document.plainText != plainText {
                             document.plainText = plainText
                         }
-                        // Note: No autosave needed - Yjs handles sync!
+                        
+                        // Update JSON content for task extraction
+                        if let jsonContent = jsonContent {
+                            document.content = jsonContent
+                        }
+                        
+                        // Update timestamp for sorting by modified date
+                        document.updatedAt = Date()
                     },
                     onMetaChange: { meta in
                         // Sync metadata from Yjs to SwiftData (for local queries)
@@ -548,6 +582,11 @@ struct LiquidGlassEditorToolbar: View {
     private let iconSize: CGFloat = 14.0
     private let textButtonPadding: CGFloat = 12.0
     
+    // Whether the color picker section should affect layout (based on visible colors, not showColorPicker flag)
+    private var colorPickerVisible: Bool {
+        visibleColorCount > 0
+    }
+    
     var body: some View {
         GlassEffectContainer(spacing: glassSpacing) {
             HStack(spacing: glassSpacing) {
@@ -561,8 +600,8 @@ struct LiquidGlassEditorToolbar: View {
                         let groupOffset: CGFloat = {
                             if index == 0 { return 0 }
                             var offset = CGFloat(index)
-                            // If highlight is active and this group comes after the highlight group, add extra offset
-                            if editorState.isHighlight, let highlightIndex = highlightGroupIndex, index > highlightIndex {
+                            // If colors are visible and this group comes after the highlight group, add extra offset
+                            if colorPickerVisible, let highlightIndex = highlightGroupIndex, index > highlightIndex {
                                 offset += 1 // Extra offset to merge with color picker
                             }
                             return mergeOffset * offset
@@ -573,7 +612,7 @@ struct LiquidGlassEditorToolbar: View {
                             .offset(x: groupOffset)
                         
                         // Insert highlight color picker right after the group containing highlight
-                        if (editorState.isHighlight || showColorPicker) && index == highlightGroupIndex {
+                        if showColorPicker && index == highlightGroupIndex {
                             highlightColorPicker
                                 .glassEffect(.regular, in: .capsule)
                                 .transition(.asymmetric(
@@ -588,7 +627,7 @@ struct LiquidGlassEditorToolbar: View {
                 
                 // Overflow menu for hidden tools
                 if !config.hiddenTools.isEmpty {
-                    let overflowOffset = config.groups.count + (editorState.isHighlight && highlightGroupIndex != nil ? 1 : 0)
+                    let overflowOffset = config.groups.count + (colorPickerVisible && highlightGroupIndex != nil ? 1 : 0)
                     overflowButton
                         .glassEffect(.regular, in: .capsule)
                         .offset(x: mergeOffset * CGFloat(overflowOffset))
@@ -598,33 +637,64 @@ struct LiquidGlassEditorToolbar: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .animation(.spring(response: 0.35, dampingFraction: 0.75), value: editorState.isHighlight)
+            .animation(.spring(response: 0.35, dampingFraction: 0.75), value: colorPickerVisible)
             .animation(.spring(response: 0.35, dampingFraction: 0.75), value: config.groups.count)
             .onChange(of: editorState.isHighlight) { oldValue, newValue in
+                // Only respond to editor state changes if picker state doesn't already match
+                // This handles cursor movement into/out of highlighted text
                 if newValue && !showColorPicker {
-                    // Show color picker and cascade colors in
+                    // Cursor moved into highlighted text - show color picker
                     showColorPicker = true
                     visibleColorCount = 0
-                    // Cascade colors in with delay
                     for i in 0..<6 {
                         DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.04) {
-                            if showColorPicker { // Only update if still showing
+                            if showColorPicker {
                                 visibleColorCount = i + 1
                             }
                         }
                     }
                 } else if !newValue && showColorPicker {
-                    // Cascade colors out with overlapping timing for smoother cascade
+                    // Cursor moved out of highlighted text - hide color picker
                     for i in (0..<6).reversed() {
-                        // Overlap animations: each starts before previous finishes (20ms delay instead of 50ms)
                         DispatchQueue.main.asyncAfter(deadline: .now() + Double(6 - i - 1) * 0.02) {
                             visibleColorCount = i
                         }
                     }
-                    // Hide picker after all animations complete (6 colors × 20ms + buffer)
                     DispatchQueue.main.asyncAfter(deadline: .now() + Double(6) * 0.02 + 0.15) {
                         showColorPicker = false
                         visibleColorCount = 0
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ToggleHighlightColors"))) { _ in
+                // Keyboard shortcut triggered - toggle color picker
+                toggleColorPicker()
+            }
+        }
+    }
+    
+    // MARK: - Toggle Color Picker
+    
+    private func toggleColorPicker() {
+        if showColorPicker {
+            // Close: cascade colors out
+            for i in (0..<6).reversed() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(6 - i - 1) * 0.02) {
+                    visibleColorCount = i
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(6) * 0.02 + 0.15) {
+                showColorPicker = false
+                visibleColorCount = 0
+            }
+        } else {
+            // Open: cascade colors in
+            showColorPicker = true
+            visibleColorCount = 0
+            for i in 0..<6 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.04) {
+                    if showColorPicker {
+                        visibleColorCount = i + 1
                     }
                 }
             }
@@ -812,27 +882,10 @@ struct LiquidGlassEditorToolbar: View {
         case .code:
             webView.toggleCode()
         case .highlight:
-            // Immediately show color picker when highlight button is clicked (before state update)
-            let wasHighlighted = editorState.isHighlight
+            // Toggle highlight in the editor
             webView.evaluateJavaScript("editorBridge.toggleHighlight()")
-            
-            // If we're toggling highlight ON (wasn't highlighted before), show colors immediately
-            if !wasHighlighted {
-                showColorPicker = true
-                visibleColorCount = 0
-                // Cascade colors in
-                for i in 0..<6 {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.04) {
-                        if showColorPicker {
-                            visibleColorCount = i + 1
-                        }
-                    }
-                }
-            } else {
-                // If toggling OFF, hide immediately (state will update from JS)
-                showColorPicker = false
-                visibleColorCount = 0
-            }
+            // Toggle color picker with cascade animation
+            toggleColorPicker()
         case .subscript_:
             webView.evaluateJavaScript("editorBridge.toggleSubscript()")
         case .superscript_:
