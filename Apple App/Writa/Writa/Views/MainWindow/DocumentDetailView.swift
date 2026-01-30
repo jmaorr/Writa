@@ -214,9 +214,38 @@ struct DocumentDetailView: View {
             } label: {
                 Label("Version History", systemImage: "clock.arrow.circlepath")
             }
-            
+
             Divider()
-            
+
+            // Cleanup submenu
+            Menu {
+                Button {
+                    webView?.debugDocument()
+                } label: {
+                    Label("Debug Document Structure", systemImage: "ladybug")
+                }
+
+                Button {
+                    webView?.healSnippets { healed, removed in
+                        print("Heal complete: healed=\(healed), removed=\(removed)")
+                    }
+                } label: {
+                    Label("Heal Corrupted Snippets", systemImage: "bandage")
+                }
+
+                Divider()
+
+                Button(role: .destructive) {
+                    resetDocumentViaAPI()
+                } label: {
+                    Label("Reset Document (Server)", systemImage: "arrow.counterclockwise.circle")
+                }
+            } label: {
+                Label("Cleanup", systemImage: "wand.and.stars")
+            }
+
+            Divider()
+
             Button(role: .destructive) {
                 // Move to trash
             } label: {
@@ -244,7 +273,21 @@ struct DocumentDetailView: View {
         // TODO: Implement color picker
         print("Show color picker")
     }
-    
+
+    // MARK: - Server Cleanup Actions
+
+    private func resetDocumentViaAPI() {
+        PartyKitAPI.resetDocument(documentId: document.id) { result in
+            switch result {
+            case .success:
+                // Reload the document to get fresh state
+                handleDocumentChange(from: document.id, to: document.id)
+            case .failure(let error):
+                print("Failed to reset document: \(error.localizedDescription)")
+            }
+        }
+    }
+
     // MARK: - Keyboard Shortcuts
     
     private func removeKeyboardMonitor() {
@@ -453,8 +496,9 @@ struct TiptapCollabEditorView: View {
     var onShowLinkDialog: () -> Void
     var onShowColorPicker: () -> Void
     @Binding var isEditorReady: Bool
-    
+
     @Environment(\.themeManager) private var themeManager
+    @Environment(\.authManager) private var authManager
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -470,9 +514,9 @@ struct TiptapCollabEditorView: View {
                 // Collaborative WebView
                 TiptapCollabWebView(
                     documentId: document.id,
-                    userId: nil,  // TODO: Get from auth
-                    userName: nil,  // TODO: Get from auth
-                    userColor: nil,
+                    userId: authManager.currentUser?.id,
+                    userName: authManager.currentUser?.displayName ?? "Anonymous",
+                    userColor: "#007AFF",
                     themeCSS: themeCSS,
                     onReady: {
                         print("📝 TipTap collaborative editor ready!")

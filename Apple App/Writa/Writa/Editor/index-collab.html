@@ -576,7 +576,131 @@
             const body = schema.nodes.promptSnippetBody.create()
             return schema.nodes.promptSnippet.create({ expanded: true }, [title, body])
         }
-        
+
+        // Heal corrupted snippets in the document
+        // This finds and fixes:
+        // 1. Orphaned snippets (snippets without a parent list) - wraps them in a list
+        // 2. Structurally invalid snippets (missing title/body) - removes them
+        // 3. Empty snippet lists - removes them
+        function healCorruptedSnippets(editor) {
+            const { state } = editor
+            const { doc, schema } = state
+            let healed = 0
+            let removed = 0
+
+            // First pass: find orphaned snippets (direct children of doc, not inside a list)
+            const orphanedSnippets = []
+            const invalidSnippets = []
+            const emptyLists = []
+
+            doc.forEach((node, offset) => {
+                // Check for orphaned snippets at the top level
+                if (node.type.name === 'promptSnippet') {
+                    // Check if structurally valid
+                    let hasTitle = false
+                    let hasBody = false
+                    node.forEach(child => {
+                        if (child.type.name === 'promptSnippetTitle') hasTitle = true
+                        if (child.type.name === 'promptSnippetBody') hasBody = true
+                    })
+
+                    if (hasTitle && hasBody) {
+                        // Valid but orphaned - needs to be wrapped in a list
+                        orphanedSnippets.push({ pos: offset + 1, node, size: node.nodeSize })
+                    } else {
+                        // Invalid structure - mark for removal
+                        invalidSnippets.push({ pos: offset + 1, size: node.nodeSize })
+                    }
+                }
+
+                // Check snippet lists for empty/invalid ones
+                if (node.type.name === 'promptSnippetList') {
+                    let validSnippets = 0
+                    node.forEach(child => {
+                        if (child.type.name === 'promptSnippet') {
+                            let hasTitle = false
+                            let hasBody = false
+                            child.forEach(grandchild => {
+                                if (grandchild.type.name === 'promptSnippetTitle') hasTitle = true
+                                if (grandchild.type.name === 'promptSnippetBody') hasBody = true
+                            })
+                            if (hasTitle && hasBody) validSnippets++
+                        }
+                    })
+
+                    if (validSnippets === 0) {
+                        emptyLists.push({ pos: offset + 1, size: node.nodeSize })
+                    }
+                }
+            })
+
+            // Also check nested content for orphaned snippets
+            doc.descendants((node, pos, parent) => {
+                if (node.type.name === 'promptSnippet' && parent && parent.type.name !== 'promptSnippetList' && parent.type.name !== 'doc') {
+                    let hasTitle = false
+                    let hasBody = false
+                    node.forEach(child => {
+                        if (child.type.name === 'promptSnippetTitle') hasTitle = true
+                        if (child.type.name === 'promptSnippetBody') hasBody = true
+                    })
+
+                    if (hasTitle && hasBody) {
+                        orphanedSnippets.push({ pos, node, size: node.nodeSize })
+                    } else {
+                        invalidSnippets.push({ pos, size: node.nodeSize })
+                    }
+                }
+            })
+
+            const totalIssues = orphanedSnippets.length + invalidSnippets.length + emptyLists.length
+
+            if (totalIssues === 0) {
+                return { healed: 0, removed: 0 }
+            }
+
+            sendToSwift({
+                type: 'debug',
+                message: `Healing: ${orphanedSnippets.length} orphaned, ${invalidSnippets.length} invalid, ${emptyLists.length} empty lists`
+            })
+
+            // Build transaction - process in reverse position order to maintain positions
+            let tr = state.tr
+
+            // Combine all items and sort by position descending
+            const allItems = [
+                ...orphanedSnippets.map(s => ({ ...s, type: 'orphan' })),
+                ...invalidSnippets.map(s => ({ ...s, type: 'invalid' })),
+                ...emptyLists.map(s => ({ ...s, type: 'emptyList' }))
+            ].sort((a, b) => b.pos - a.pos)
+
+            for (const item of allItems) {
+                try {
+                    if (item.type === 'orphan') {
+                        // Wrap orphaned snippet in a list
+                        const list = schema.nodes.promptSnippetList.create(null, [item.node])
+                        tr = tr.replaceWith(item.pos, item.pos + item.size, list)
+                        healed++
+                        sendToSwift({ type: 'debug', message: `Wrapped orphaned snippet at ${item.pos} in list` })
+                    } else {
+                        // Remove invalid snippet or empty list
+                        tr = tr.delete(item.pos, item.pos + item.size)
+                        tr = tr.insert(item.pos, schema.nodes.paragraph.create())
+                        removed++
+                        sendToSwift({ type: 'debug', message: `Removed ${item.type} at ${item.pos}` })
+                    }
+                } catch (e) {
+                    sendToSwift({ type: 'debug', message: `Error healing at ${item.pos}: ${e.message}` })
+                }
+            }
+
+            if (healed > 0 || removed > 0) {
+                editor.view.dispatch(tr)
+                sendToSwift({ type: 'debug', message: `Healed document: wrapped ${healed} orphaned snippets, removed ${removed} invalid nodes` })
+            }
+
+            return { healed, removed }
+        }
+
         // ============================================
         // Task Card Nodes
         // ============================================
@@ -1017,12 +1141,71 @@
                     togglePromptSnippetCompleted: (pos) => ({ tr, state, dispatch }) => {
                         const node = state.doc.nodeAt(pos)
                         if (!node || node.type.name !== 'promptSnippet') return false
-                        
+
                         if (dispatch) {
                             tr.setNodeMarkup(pos, undefined, {
                                 ...node.attrs,
                                 completed: !node.attrs.completed
                             })
+                            dispatch(tr)
+                        }
+                        return true
+                    },
+
+                    deletePromptSnippetAt: (pos) => ({ state, tr, dispatch }) => {
+                        const node = state.doc.nodeAt(pos)
+                        if (!node || node.type.name !== 'promptSnippet') return false
+
+                        // Resolve position INSIDE the snippet to properly find ancestors
+                        const $pos = state.doc.resolve(pos + 1)
+                        let listDepth = null
+                        let listNode = null
+                        let snippetDepth = null
+
+                        // Find both the snippet and list depths
+                        for (let d = $pos.depth; d >= 0; d--) {
+                            const n = $pos.node(d)
+                            if (n.type.name === 'promptSnippet' && snippetDepth === null) {
+                                snippetDepth = d
+                            }
+                            if (n.type.name === 'promptSnippetList') {
+                                listDepth = d
+                                listNode = n
+                                break
+                            }
+                        }
+
+                        // Handle orphaned snippets (no parent list) - just delete the snippet directly
+                        if (!listNode || listDepth === null) {
+                            if (snippetDepth === null) return false
+
+                            const snippetStart = $pos.before(snippetDepth)
+                            const snippetEnd = $pos.after(snippetDepth)
+
+                            if (dispatch) {
+                                tr.delete(snippetStart, snippetEnd)
+                                tr.insert(snippetStart, state.schema.nodes.paragraph.create())
+                                tr.setSelection(state.selection.constructor.near(tr.doc.resolve(snippetStart + 1)))
+                                dispatch(tr)
+                            }
+                            return true
+                        }
+
+                        const listStart = $pos.before(listDepth)
+                        const listEnd = $pos.after(listDepth)
+                        const snippetStart = $pos.before(snippetDepth)
+                        const snippetEnd = $pos.after(snippetDepth)
+
+                        if (dispatch) {
+                            if (listNode.childCount === 1) {
+                                // Only snippet in list - delete whole list and insert paragraph
+                                tr.delete(listStart, listEnd)
+                                tr.insert(listStart, state.schema.nodes.paragraph.create())
+                                tr.setSelection(state.selection.constructor.near(tr.doc.resolve(listStart + 1)))
+                            } else {
+                                // Multiple snippets - just delete this one
+                                tr.delete(snippetStart, snippetEnd)
+                            }
                             dispatch(tr)
                         }
                         return true
@@ -1034,21 +1217,29 @@
                 return {
                     'Escape': ({ editor }) => {
                         if (!editor.isActive('promptSnippet')) return false
-                        
+
                         const { $from } = editor.state.selection
                         const ancestor = findAncestor($from, 'promptSnippet')
                         if (!ancestor) return false
-                        
+
                         if (isPromptSnippetEmpty(ancestor.node)) {
                             const listAncestor = findAncestor($from, 'promptSnippetList')
-                            if (!listAncestor) return false
-                            
+                            const snippetStart = $from.before(ancestor.depth)
+                            const snippetEnd = $from.after(ancestor.depth)
+
+                            // Handle orphaned snippets (no parent list)
+                            if (!listAncestor) {
+                                return editor.chain()
+                                    .deleteRange({ from: snippetStart, to: snippetEnd })
+                                    .insertContentAt(snippetStart, { type: 'paragraph' })
+                                    .setTextSelection(snippetStart + 1)
+                                    .run()
+                            }
+
                             const { node: list, depth: listDepth } = listAncestor
                             const listStart = $from.before(listDepth)
                             const listEnd = $from.after(listDepth)
-                            const snippetStart = $from.before(ancestor.depth)
-                            const snippetEnd = $from.after(ancestor.depth)
-                            
+
                             if (list.childCount === 1) {
                                 return editor.chain()
                                     .deleteRange({ from: listStart, to: listEnd })
@@ -1065,29 +1256,39 @@
                                     .run()
                             }
                         }
-                        
+
                         if (!ancestor.node.attrs.expanded) return false
                         return editor.commands.togglePromptSnippetExpanded()
                     },
                     
                     'Enter': ({ editor }) => {
                         if (!editor.isActive('promptSnippet')) return false
-                        
+
                         const { state } = editor
                         const { $from } = state.selection
                         const snippetAncestor = findAncestor($from, 'promptSnippet')
                         if (!snippetAncestor) return false
-                        
+
                         const { node: snippet, depth: snippetDepth } = snippetAncestor
-                        
+
                         if (isPromptSnippetEmpty(snippet)) {
                             const listAncestor = findAncestor($from, 'promptSnippetList')
-                            if (!listAncestor) return false
-                            
+                            const snippetStart = $from.before(snippetDepth)
+                            const snippetEnd = $from.after(snippetDepth)
+
+                            // Handle orphaned snippets (no parent list)
+                            if (!listAncestor) {
+                                return editor.chain()
+                                    .deleteRange({ from: snippetStart, to: snippetEnd })
+                                    .insertContentAt(snippetStart, { type: 'paragraph' })
+                                    .setTextSelection(snippetStart + 1)
+                                    .run()
+                            }
+
                             const { node: list, depth: listDepth } = listAncestor
                             const listStart = $from.before(listDepth)
                             const listEnd = $from.after(listDepth)
-                            
+
                             if (list.childCount === 1) {
                                 return editor.chain()
                                     .deleteRange({ from: listStart, to: listEnd })
@@ -1095,8 +1296,6 @@
                                     .setTextSelection(listStart + 1)
                                     .run()
                             } else {
-                                const snippetStart = $from.before(snippetDepth)
-                                const snippetEnd = $from.after(snippetDepth)
                                 const snippetSize = snippetEnd - snippetStart
                                 const newListEnd = listEnd - snippetSize
                                 return editor.chain()
@@ -1106,7 +1305,7 @@
                                     .run()
                             }
                         }
-                        
+
                         const titleAncestor = findAncestor($from, 'promptSnippetTitle')
                         const bodyAncestor = findAncestor($from, 'promptSnippetBody')
                         
@@ -1186,24 +1385,34 @@
                     
                     'Backspace': ({ editor }) => {
                         if (!editor.isActive('promptSnippet')) return false
-                        
+
                         const { selection, selection: { $from } } = editor.state
                         if (!selection.empty || $from.parentOffset !== 0) return false
-                        
+
                         const titleAncestor = findAncestor($from, 'promptSnippetTitle')
                         if (!titleAncestor) return false
-                        
+
                         const snippetDepth = titleAncestor.depth - 1
                         const snippet = $from.node(snippetDepth)
                         if (!isPromptSnippetEmpty(snippet)) return false
-                        
+
                         const listAncestor = findAncestor($from, 'promptSnippetList')
-                        if (!listAncestor) return false
-                        
+                        const snippetStart = $from.before(snippetDepth)
+                        const snippetEnd = $from.after(snippetDepth)
+
+                        // Handle orphaned snippets (no parent list)
+                        if (!listAncestor) {
+                            return editor.chain()
+                                .deleteRange({ from: snippetStart, to: snippetEnd })
+                                .insertContentAt(snippetStart, { type: 'paragraph' })
+                                .setTextSelection(snippetStart + 1)
+                                .run()
+                        }
+
                         const { node: list, depth: listDepth } = listAncestor
                         const listStart = $from.before(listDepth)
                         const listEnd = $from.after(listDepth)
-                        
+
                         if (list.childCount === 1) {
                             return editor.chain()
                                 .deleteRange({ from: listStart, to: listEnd })
@@ -1211,8 +1420,6 @@
                                 .setTextSelection(listStart + 1)
                                 .run()
                         } else {
-                            const snippetStart = $from.before(snippetDepth)
-                            const snippetEnd = $from.after(snippetDepth)
                             const snippetSize = snippetEnd - snippetStart
                             const newListEnd = listEnd - snippetSize
                             return editor.chain()
@@ -1278,11 +1485,10 @@
                     const actions = document.createElement('div')
                     actions.className = 'prompt-snippet-actions'
                     actions.setAttribute('contenteditable', 'false')
-                    
+
                     const doneBtn = createButton('✓', 'Done', 'prompt-snippet-action--done')
-                    const copyBtn = createButton('⧉', 'Copy')
                     const deleteBtn = createButton('×', 'Delete', 'prompt-snippet-action--delete')
-                    
+
                     doneBtn.addEventListener('mousedown', (e) => {
                         e.preventDefault()
                         e.stopPropagation()
@@ -1299,75 +1505,17 @@
                             }
                         }
                     })
-                    
-                    copyBtn.addEventListener('mousedown', (e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        const pos = getPos()
-                        if (typeof pos === 'number') {
-                            const currentNode = editor.state.doc.nodeAt(pos)
-                            if (currentNode && currentNode.type.name === 'promptSnippet') {
-                                let bodyText = ''
-                                currentNode.forEach(child => {
-                                    if (child.type.name === 'promptSnippetBody') {
-                                        bodyText = child.textContent
-                                    }
-                                })
-                                if (bodyText) {
-                                    navigator.clipboard.writeText(bodyText)
-                                    feedback.classList.add('visible')
-                                    setTimeout(() => feedback.classList.remove('visible'), 1500)
-                                }
-                            }
-                        }
-                    })
-                    
+
                     deleteBtn.addEventListener('mousedown', (e) => {
                         e.preventDefault()
                         e.stopPropagation()
                         const pos = getPos()
-                        if (typeof pos !== 'number') return
-                        
-                        // Replicate the Enter key behavior for deleting empty snippets
-                        // Position cursor at start of snippet to get proper selection context
-                        editor.commands.setTextSelection(pos + 2)
-                        
-                        const { state } = editor
-                        const { $from } = state.selection
-                        const snippetAncestor = findAncestor($from, 'promptSnippet')
-                        if (!snippetAncestor) return
-                        
-                        const { depth: snippetDepth } = snippetAncestor
-                        const listAncestor = findAncestor($from, 'promptSnippetList')
-                        if (!listAncestor) return
-                        
-                        const { node: list, depth: listDepth } = listAncestor
-                        const listStart = $from.before(listDepth)
-                        const listEnd = $from.after(listDepth)
-                        
-                        if (list.childCount === 1) {
-                            // Only snippet in list - delete whole list
-                            editor.chain()
-                                .deleteRange({ from: listStart, to: listEnd })
-                                .insertContentAt(listStart, { type: 'paragraph' })
-                                .setTextSelection(listStart + 1)
-                                .run()
-                        } else {
-                            // Multiple snippets - delete just this one
-                            const snippetStart = $from.before(snippetDepth)
-                            const snippetEnd = $from.after(snippetDepth)
-                            const snippetSize = snippetEnd - snippetStart
-                            const newListEnd = listEnd - snippetSize
-                            editor.chain()
-                                .deleteRange({ from: snippetStart, to: snippetEnd })
-                                .insertContentAt(newListEnd, { type: 'paragraph' })
-                                .setTextSelection(newListEnd + 1)
-                                .run()
+                        if (typeof pos === 'number') {
+                            editor.commands.deletePromptSnippetAt(pos)
                         }
                     })
                     
                     actions.appendChild(doneBtn)
-                    actions.appendChild(copyBtn)
                     actions.appendChild(deleteBtn)
                     
                     const previewActions = document.createElement('div')
@@ -1393,14 +1541,21 @@
                         if (typeof pos === 'number') {
                             const currentNode = editor.state.doc.nodeAt(pos)
                             if (currentNode && currentNode.type.name === 'promptSnippet') {
+                                let titleText = ''
                                 let bodyText = ''
                                 currentNode.forEach(child => {
-                                    if (child.type.name === 'promptSnippetBody') {
+                                    if (child.type.name === 'promptSnippetTitle') {
+                                        titleText = child.textContent
+                                    } else if (child.type.name === 'promptSnippetBody') {
                                         bodyText = child.textContent
                                     }
                                 })
-                                if (bodyText) {
-                                    navigator.clipboard.writeText(bodyText)
+                                // Copy title on first line, description on second line
+                                const textToCopy = titleText && bodyText
+                                    ? `${titleText}\n${bodyText}`
+                                    : titleText || bodyText
+                                if (textToCopy) {
+                                    navigator.clipboard.writeText(textToCopy)
                                     feedback.classList.add('visible')
                                     setTimeout(() => feedback.classList.remove('visible'), 1500)
                                 }
@@ -1439,7 +1594,112 @@
                     }
                     
                     updatePreview(node)
-                    
+
+                    // Click anywhere on collapsed snippet to copy
+                    dom.addEventListener('click', (e) => {
+                        // Only trigger if collapsed and not clicking on a button
+                        const pos = getPos()
+                        if (typeof pos !== 'number') return
+
+                        const currentNode = editor.state.doc.nodeAt(pos)
+                        if (!currentNode || currentNode.type.name !== 'promptSnippet') return
+                        if (currentNode.attrs.expanded) return // Don't copy when expanded
+
+                        // Don't copy if clicking on buttons
+                        if (e.target.closest('.prompt-snippet-action')) return
+                        if (e.target.closest('.prompt-snippet-checkbox')) return
+
+                        e.preventDefault()
+                        e.stopPropagation()
+
+                        let titleText = ''
+                        let bodyText = ''
+                        currentNode.forEach(child => {
+                            if (child.type.name === 'promptSnippetTitle') {
+                                titleText = child.textContent
+                            } else if (child.type.name === 'promptSnippetBody') {
+                                bodyText = child.textContent
+                            }
+                        })
+
+                        const textToCopy = titleText && bodyText
+                            ? `${titleText}\n${bodyText}`
+                            : titleText || bodyText
+
+                        if (textToCopy) {
+                            navigator.clipboard.writeText(textToCopy)
+                            feedback.classList.add('visible')
+                            setTimeout(() => feedback.classList.remove('visible'), 1500)
+                        }
+                    })
+
+                    // Right-click context menu for delete
+                    dom.addEventListener('contextmenu', (e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+
+                        const pos = getPos()
+                        if (typeof pos !== 'number') return
+
+                        // Remove any existing context menu
+                        const existingMenu = document.querySelector('.prompt-snippet-context-menu')
+                        if (existingMenu) existingMenu.remove()
+
+                        // Create context menu
+                        const menu = document.createElement('div')
+                        menu.className = 'prompt-snippet-context-menu'
+                        menu.style.cssText = `
+                            position: fixed;
+                            left: ${e.clientX}px;
+                            top: ${e.clientY}px;
+                            background: var(--editor-bg, #fff);
+                            border: 1px solid var(--border-color, #e0e0e0);
+                            border-radius: 6px;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                            padding: 4px 0;
+                            z-index: 9999;
+                            min-width: 120px;
+                            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+                        `
+
+                        const deleteItem = document.createElement('div')
+                        deleteItem.textContent = 'Delete Snippet'
+                        deleteItem.style.cssText = `
+                            padding: 8px 12px;
+                            cursor: pointer;
+                            color: #d32f2f;
+                            font-size: 13px;
+                            font-weight: 400;
+                        `
+                        deleteItem.addEventListener('mouseenter', () => {
+                            deleteItem.style.background = 'rgba(211, 47, 47, 0.1)'
+                        })
+                        deleteItem.addEventListener('mouseleave', () => {
+                            deleteItem.style.background = 'transparent'
+                        })
+                        deleteItem.addEventListener('click', () => {
+                            menu.remove()
+                            editor.commands.deletePromptSnippetAt(pos)
+                        })
+
+                        menu.appendChild(deleteItem)
+                        document.body.appendChild(menu)
+
+                        // Close menu when clicking elsewhere
+                        const closeMenu = (evt) => {
+                            if (!menu.contains(evt.target)) {
+                                menu.remove()
+                                document.removeEventListener('click', closeMenu)
+                                document.removeEventListener('contextmenu', closeMenu)
+                            }
+                        }
+                        // Delay adding listener to avoid immediate trigger
+                        setTimeout(() => {
+                            document.addEventListener('click', closeMenu)
+                            document.addEventListener('contextmenu', closeMenu)
+                        }, 0)
+                    })
+
                     dom.appendChild(checkbox)
                     dom.appendChild(content)
                     dom.appendChild(preview)
@@ -1672,21 +1932,20 @@
                     Subscript,
                     Superscript,
                     TextStyle,
-                    Color,
                 ]
                 
                 // Add Collaboration if enabled
                 if (useCollaboration) {
                     const fragment = ydoc.getXmlFragment('content')
                     sendToSwift({ type: 'debug', message: `Adding Collaboration extension... Yjs fragment length: ${fragment.length}` })
-                    
+
                     // Debug: log Yjs fragment structure
                     try {
                         sendToSwift({ type: 'debug', message: `Yjs fragment type: ${fragment.constructor.name}` })
                     } catch (e) {
                         sendToSwift({ type: 'debug', message: `Yjs fragment error: ${e.message}` })
                     }
-                    
+
                     // Pass fragment directly instead of document+field
                     // This avoids internal document.getXmlFragment call that might use different Yjs instance
                     extensions.push(
@@ -1694,6 +1953,20 @@
                             fragment: fragment
                         })
                     )
+
+                    // Add CollaborationCursor for presence indicators (shows other users' cursors)
+                    if (wsProvider && CollaborationCursor) {
+                        sendToSwift({ type: 'debug', message: `Adding CollaborationCursor with user: ${USER_NAME}, color: ${USER_COLOR}` })
+                        extensions.push(
+                            CollaborationCursor.configure({
+                                provider: wsProvider,
+                                user: {
+                                    name: USER_NAME,
+                                    color: USER_COLOR
+                                }
+                            })
+                        )
+                    }
                 }
                 
                 sendToSwift({ type: 'debug', message: 'Creating Editor instance...' })
@@ -1707,6 +1980,14 @@
                     
                     onCreate: ({ editor }) => {
                         sendToSwift({ type: 'debug', message: `Editor created! Editable: ${editor.isEditable}` })
+
+                        // Heal any corrupted snippets after document loads
+                        setTimeout(() => {
+                            const result = healCorruptedSnippets(editor)
+                            if (result.removed > 0) {
+                                sendToSwift({ type: 'debug', message: `Auto-healed ${result.removed} corrupted snippets on load` })
+                            }
+                        }, 500)  // Give Yjs time to fully sync
                     },
                     
                     onUpdate: ({ editor }) => {
@@ -2071,9 +2352,12 @@
                     if (url) editor.chain().focus().setLink({ href: url }).run();
                     else editor.chain().focus().unsetLink().run();
                 },
-                
-                insertImage: (src, alt) => {
-                    if (src && editor) editor.chain().focus().setImage({ src, alt: alt || '' }).run();
+                unsetLink: () => {
+                    if (editor) editor.chain().focus().unsetLink().run();
+                },
+
+                insertImage: (src, alt, title) => {
+                    if (src && editor) editor.chain().focus().setImage({ src, alt: alt || '', title: title || '' }).run();
                 },
                 
                 insertTable: () => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
@@ -2086,8 +2370,7 @@
                 deleteRow: () => editor?.chain().focus().deleteRow().run(),
                 
                 setTextAlign: (align) => editor?.chain().focus().setTextAlign(align).run(),
-                setColor: (color) => editor?.chain().focus().setColor(color).run(),
-                
+
                 undo: () => editor?.chain().focus().undo().run(),
                 redo: () => editor?.chain().focus().redo().run(),
                 
@@ -2159,7 +2442,50 @@
                 },
                 togglePromptSnippetExpanded: () => editor?.commands.togglePromptSnippetExpanded(),
                 copyPromptSnippet: () => editor?.commands.copyPromptSnippet(),
-                
+
+                // Heal corrupted snippets (checks structure, not just empty)
+                healSnippets: () => {
+                    if (!editor) return { healed: 0, removed: 0 }
+                    return healCorruptedSnippets(editor)
+                },
+
+                // Debug: dump full document structure
+                debugDocument: () => {
+                    if (!editor) return 'No editor'
+
+                    const { state } = editor
+                    const nodes = []
+
+                    state.doc.descendants((node, pos) => {
+                        const info = {
+                            type: node.type.name,
+                            pos: pos,
+                            size: node.nodeSize,
+                            childCount: node.childCount,
+                            text: node.isText ? node.text : (node.textContent?.slice(0, 50) || ''),
+                            attrs: node.attrs
+                        }
+                        nodes.push(info)
+
+                        // Extra detail for snippets
+                        if (node.type.name === 'promptSnippet' || node.type.name === 'promptSnippetList') {
+                            sendToSwift({ type: 'debug', message: `NODE: ${node.type.name} at ${pos}, size=${node.nodeSize}, children=${node.childCount}` })
+                            node.forEach((child, offset) => {
+                                sendToSwift({ type: 'debug', message: `  CHILD: ${child.type.name} at offset ${offset}, size=${child.nodeSize}` })
+                            })
+                        }
+                    })
+
+                    sendToSwift({ type: 'debug', message: `Document has ${nodes.length} nodes total` })
+
+                    // Count snippets
+                    const snippetLists = nodes.filter(n => n.type === 'promptSnippetList').length
+                    const snippets = nodes.filter(n => n.type === 'promptSnippet').length
+                    sendToSwift({ type: 'debug', message: `Found ${snippetLists} snippet lists, ${snippets} snippets` })
+
+                    return { nodeCount: nodes.length, snippetLists, snippets }
+                },
+
                 focus: () => editor?.commands.focus(),
                 blur: () => editor?.commands.blur(),
                 getState: () => JSON.stringify(getState()),
@@ -2178,6 +2504,102 @@
                 },
                 getConnectionStatus: () => {
                     return wsProvider?.wsconnected ? 'connected' : 'disconnected'
+                },
+
+                // Remove all corrupted/empty snippet lists from the document
+                // This syncs to server via Yjs, fixing corruption everywhere
+                removeCorruptedSnippets: () => {
+                    if (!editor) {
+                        sendToSwift({ type: 'debug', message: 'No editor to clean' })
+                        return false
+                    }
+
+                    const { state } = editor
+                    const { tr } = state
+                    let deletions = []
+
+                    // Find all promptSnippetList nodes
+                    state.doc.descendants((node, pos) => {
+                        if (node.type.name === 'promptSnippetList') {
+                            // Check if any child snippets are empty/corrupted
+                            let hasCorrupted = false
+                            node.forEach((child) => {
+                                if (child.type.name === 'promptSnippet') {
+                                    let titleText = ''
+                                    let bodyText = ''
+                                    child.forEach((grandchild) => {
+                                        if (grandchild.type.name === 'promptSnippetTitle') {
+                                            titleText = grandchild.textContent.trim()
+                                        } else if (grandchild.type.name === 'promptSnippetBody') {
+                                            bodyText = grandchild.textContent.trim()
+                                        }
+                                    })
+                                    // Consider empty snippets as corrupted
+                                    if (!titleText && !bodyText) {
+                                        hasCorrupted = true
+                                    }
+                                }
+                            })
+
+                            if (hasCorrupted) {
+                                deletions.push({ from: pos, to: pos + node.nodeSize })
+                            }
+                        }
+                    })
+
+                    sendToSwift({ type: 'debug', message: `Found ${deletions.length} corrupted snippet lists` })
+
+                    if (deletions.length === 0) {
+                        return false
+                    }
+
+                    // Delete in reverse order to maintain positions
+                    deletions.sort((a, b) => b.from - a.from)
+                    for (const del of deletions) {
+                        tr.delete(del.from, del.to)
+                        // Insert a paragraph to replace deleted content
+                        tr.insert(del.from, state.schema.nodes.paragraph.create())
+                    }
+
+                    editor.view.dispatch(tr)
+                    sendToSwift({ type: 'debug', message: `Removed ${deletions.length} corrupted snippet lists` })
+                    return true
+                },
+
+                // Force delete ALL snippet lists in the document (nuclear option)
+                removeAllSnippets: () => {
+                    if (!editor) {
+                        sendToSwift({ type: 'debug', message: 'No editor to clean' })
+                        return false
+                    }
+
+                    const { state } = editor
+                    const { tr } = state
+                    let deletions = []
+
+                    // Find all promptSnippetList nodes
+                    state.doc.descendants((node, pos) => {
+                        if (node.type.name === 'promptSnippetList') {
+                            deletions.push({ from: pos, to: pos + node.nodeSize })
+                        }
+                    })
+
+                    sendToSwift({ type: 'debug', message: `Found ${deletions.length} snippet lists to remove` })
+
+                    if (deletions.length === 0) {
+                        return false
+                    }
+
+                    // Delete in reverse order to maintain positions
+                    deletions.sort((a, b) => b.from - a.from)
+                    for (const del of deletions) {
+                        tr.delete(del.from, del.to)
+                        tr.insert(del.from, state.schema.nodes.paragraph.create())
+                    }
+
+                    editor.view.dispatch(tr)
+                    sendToSwift({ type: 'debug', message: `Removed ${deletions.length} snippet lists` })
+                    return true
                 }
             };
             

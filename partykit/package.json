@@ -1,0 +1,19 @@
+{
+  "name": "writa-partykit",
+  "version": "1.0.0",
+  "description": "Writa PartyKit server for real-time Yjs collaboration",
+  "main": "src/server.ts",
+  "scripts": {
+    "dev": "partykit dev",
+    "deploy": "partykit deploy",
+    "tail": "partykit tail"
+  },
+  "dependencies": {
+    "partykit": "^0.0.111",
+    "y-partykit": "^0.0.33",
+    "yjs": "^13.6.18"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}
